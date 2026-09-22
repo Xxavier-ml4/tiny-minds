@@ -1,0 +1,17 @@
+# ~52M parameters (approx_param_count). Smallest reference preset: aimed at
+# the low end of the brief's 50M-500M range, teacher/student experiments
+# aside. See docs/architecture/tinymind-design.md section 8.
+model:
+  hidden_size: 576
+  num_layers: 12
+  num_heads: 6
+  num_kv_heads: 2
+  intermediate_size: 1536
+  max_seq_len: 2048
+  vocab_size: 16000
+  attention_type: gqa
+  norm_type: rmsnorm
+  mlp_type: swiglu
+  rope_theta: 10000.0
+  tie_embeddings: true
+  sliding_window: 0

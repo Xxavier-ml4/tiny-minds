@@ -1,0 +1,296 @@
+{
+  "suite_version": 1,
+  "model": {
+    "parameters": 1214592,
+    "config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+    "provenance": {
+      "checkpoint": "step-00000700",
+      "checkpoint_manifest_sha256": "01246016eee0eab24a9ae4131361e600e461bbe47bc6d3a86d1a4aafad8b3031",
+      "created_at": "2026-09-21T06:36:06+00:00",
+      "cumulative_steps": 700,
+      "dataset_hash": "b0a855efbf21ae7ba835189c07bce9eb2ee7dd1edf6d1b8c3c2e2a47b793ad50",
+      "final_validation": {
+        "step": 700,
+        "val_loss": 0.38139858221056816,
+        "val_ppl": 1.4643311454526213,
+        "val_tokens": 14617
+      },
+      "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+      "global_step": 700,
+      "stage": "stage1",
+      "stage_complete": true,
+      "training_config_hash": "52855be7a124c388083b1b44c482b9d419ed6152d2f4654b42b84f35bf7814a6"
+    }
+  },
+  "loss": {
+    "validation": {
+      "loss": 0.38139858025324247,
+      "perplexity": 1.4643311425864483,
+      "loss_tokens": 14617,
+      "by_category": {
+        "clarification_followup": 0.0854401844804005,
+        "context_retention": 0.2405756075088292,
+        "copy": 2.2987461799604887,
+        "language": 0.28816964047864096,
+        "tool_arithmetic": 0.17236649805873172,
+        "tool_lookup": 0.3383379379908244,
+        "tool_memory": 0.13614894003763686,
+        "tool_result": 0.3138304594859941,
+        "tool_timer": 0.09509148200352986,
+        "tool_weather": 0.14960714486929086
+      },
+      "dropped_too_long": 0
+    },
+    "eval": {
+      "loss": 0.9596780512217462,
+      "perplexity": 2.6108557762723015,
+      "loss_tokens": 29778,
+      "by_category": {
+        "clarification": 1.4221753227640186,
+        "clarification_followup": 0.4742632791410442,
+        "context_retention": 1.0860991253221934,
+        "copy": 2.33340909544506,
+        "factual_qa": 0.9665602780459972,
+        "instruction": 2.1094821017721426,
+        "language": 0.28617312579087806,
+        "no_tool": 0.86474768406636,
+        "refusal": 4.219607525982055,
+        "structured": 5.591037292261076,
+        "tool_arithmetic": 0.24835857918083415,
+        "tool_lookup": 0.6579591305669911,
+        "tool_memory": 0.1726229554345806,
+        "tool_result": 0.5805611918291708,
+        "tool_timer": 0.10952775106494726,
+        "tool_weather": 0.4844681347011958
+      },
+      "dropped_too_long": 0
+    }
+  },
+  "capabilities": {
+    "clarification": {
+      "n": 18,
+      "accuracy": 0.0
+    },
+    "clarification_followup": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "context_retention": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "copy": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "factual_qa": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "instruction": {
+      "n": 20,
+      "accuracy": 0.4
+    },
+    "no_tool": {
+      "n": 9,
+      "accuracy": 0.2222222222222222
+    },
+    "refusal": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "structured": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "tool_arithmetic": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_lookup": {
+      "n": 20,
+      "accuracy": 0.6,
+      "paraphrase_accuracy": 0.5,
+      "seen_phrasing_accuracy": 0.7
+    },
+    "tool_memory": {
+      "n": 20,
+      "accuracy": 0.85
+    },
+    "tool_result": {
+      "n": 20,
+      "accuracy": 0.05
+    },
+    "tool_timer": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_weather": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    }
+  },
+  "tool_behavior": {
+    "requests_needing_a_tool": 120,
+    "correct_tool_rate": 0.7833333333333333,
+    "argument_accuracy": 0.0,
+    "wrong_tool_rate": 0.11666666666666667,
+    "no_call_rate": 0.016666666666666666,
+    "malformed_call_rate": 0.08333333333333333,
+    "requests_needing_no_tool": 167,
+    "false_positive_call_rate": 0.3413173652694611,
+    "clarification_on_missing_argument_accuracy": 0.0,
+    "clarification_followup_call_accuracy": 0.0,
+    "tool_result_incorporation_accuracy": 0.05,
+    "refusal_accuracy": 0.0
+  },
+  "generation": {
+    "graded_examples": 287,
+    "skipped_prompt_too_long": 0,
+    "max_new_tokens": 96,
+    "mean_response_tokens": 37.937282229965156,
+    "mean_response_chars": 36.937282229965156,
+    "unterminated_rate": 0.0,
+    "mean_char6gram_repetition": 0.000221226702062939,
+    "looping_rate_repetition_over_0.5": 0.0
+  },
+  "timing": {
+    "generated_tokens": 10888,
+    "generation_seconds": 14.084,
+    "tokens_per_second_python_runtime": 773.1,
+    "suite_seconds": 21.5
+  },
+  "failures_sample": [
+    {
+      "id": "eval-copy-0000",
+      "category": "copy",
+      "text": "UPUUUPP"
+    },
+    {
+      "id": "eval-copy-0001",
+      "category": "copy",
+      "text": "kkkk"
+    },
+    {
+      "id": "eval-copy-0002",
+      "category": "copy",
+      "text": "GGM"
+    },
+    {
+      "id": "eval-copy-0003",
+      "category": "copy",
+      "text": "GQGGOGOG"
+    },
+    {
+      "id": "eval-copy-0004",
+      "category": "copy",
+      "text": "TGKGGGFZ"
+    },
+    {
+      "id": "eval-copy-0005",
+      "category": "copy",
+      "text": "qnnqn"
+    },
+    {
+      "id": "eval-copy-0006",
+      "category": "copy",
+      "text": "ocott"
+    },
+    {
+      "id": "eval-copy-0007",
+      "category": "copy",
+      "text": "ccgmc"
+    },
+    {
+      "id": "eval-copy-0008",
+      "category": "copy",
+      "text": "nnn"
+    },
+    {
+      "id": "eval-copy-0009",
+      "category": "copy",
+      "text": "ccmc"
+    },
+    {
+      "id": "eval-copy-0010",
+      "category": "copy",
+      "text": "oton"
+    },
+    {
+      "id": "eval-copy-0011",
+      "category": "copy",
+      "text": "prpbp"
+    },
+    {
+      "id": "eval-copy-0012",
+      "category": "copy",
+      "text": "uuu"
+    },
+    {
+      "id": "eval-copy-0013",
+      "category": "copy",
+      "text": "TFTFTFUT"
+    },
+    {
+      "id": "eval-copy-0014",
+      "category": "copy",
+      "text": "fhf"
+    },
+    {
+      "id": "eval-copy-0015",
+      "category": "copy",
+      "text": "ngkgnngg"
+    },
+    {
+      "id": "eval-copy-0016",
+      "category": "copy",
+      "text": "GQQGKGU"
+    },
+    {
+      "id": "eval-copy-0017",
+      "category": "copy",
+      "text": "otor"
+    },
+    {
+      "id": "eval-copy-0018",
+      "category": "copy",
+      "text": "qpqpqpp"
+    },
+    {
+      "id": "eval-copy-0019",
+      "category": "copy",
+      "text": "qjqjpqp"
+    },
+    {
+      "id": "eval-arith_tool-0000",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"remember\",\"arguments\":{\"key\":\"meeting neargum\",\":\"vane\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0001",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"53+5\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0002",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"set_timer\",\"arguments\":{\"minutes\":55}}"
+    },
+    {
+      "id": "eval-arith_tool-0003",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"58-16\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0004",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"58-16\"}}"
+    }
+  ]
+}

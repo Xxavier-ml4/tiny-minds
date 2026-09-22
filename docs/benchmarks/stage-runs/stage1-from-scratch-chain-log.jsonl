@@ -1,0 +1,3 @@
+{"stage": "stage1", "job": 1, "mode": "fresh", "step": 289, "of": 700, "stop": "time_budget", "seconds": 103, "val_loss": 0.5009453522895604, "artifact": "tinymind-tiny_mobile-stage1-step000289-02b8bd4", "stage_complete": false}
+{"stage": "stage1", "job": 2, "mode": "resume", "step": 558, "of": 700, "stop": "time_budget", "seconds": 102, "val_loss": 0.40426477224904944, "artifact": "tinymind-tiny_mobile-stage1-step000558-02b8bd4", "stage_complete": false}
+{"stage": "stage1", "job": 3, "mode": "resume", "step": 700, "of": 700, "stop": "complete", "seconds": 83, "val_loss": 0.38139858221056816, "artifact": "tinymind-tiny_mobile-stage1-step000700-02b8bd4", "stage_complete": true}

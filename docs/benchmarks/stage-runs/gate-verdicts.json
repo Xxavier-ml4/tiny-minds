@@ -1,0 +1,79 @@
+{
+  "stage1": {
+    "passed": true,
+    "checks": [
+      {
+        "check": "stage",
+        "ok": true,
+        "value": "stage1",
+        "requirement": "== 'stage1'"
+      },
+      {
+        "check": "stage_complete",
+        "ok": true,
+        "value": true,
+        "requirement": "is true"
+      },
+      {
+        "check": "no_divergence",
+        "ok": true,
+        "value": "complete",
+        "requirement": "!= diverged"
+      },
+      {
+        "check": "summary.final_validation.val_loss",
+        "ok": true,
+        "value": 0.23765574058119848,
+        "requirement": "<= 1.5"
+      },
+      {
+        "check": "eval.capabilities.copy.accuracy",
+        "ok": true,
+        "value": 0.9,
+        "requirement": ">= 0.2"
+      }
+    ]
+  },
+  "stage2": {
+    "passed": false,
+    "checks": [
+      {
+        "check": "stage",
+        "ok": true,
+        "value": "stage2",
+        "requirement": "== 'stage2'"
+      },
+      {
+        "check": "stage_complete",
+        "ok": true,
+        "value": true,
+        "requirement": "is true"
+      },
+      {
+        "check": "no_divergence",
+        "ok": true,
+        "value": "complete",
+        "requirement": "!= diverged"
+      },
+      {
+        "check": "summary.final_validation.val_loss",
+        "ok": true,
+        "value": 0.18963112967860854,
+        "requirement": "<= 1.0"
+      },
+      {
+        "check": "eval.tool_behavior.correct_tool_rate",
+        "ok": true,
+        "value": 0.6416666666666667,
+        "requirement": ">= 0.3"
+      },
+      {
+        "check": "eval.tool_behavior.false_positive_call_rate",
+        "ok": false,
+        "value": 0.3413173652694611,
+        "requirement": "<= 0.3"
+      }
+    ]
+  },
+  "note": "Verdicts of configs/stages/*.gate.json against the recorded demonstration runs (tinymind stage-gate). The chain in docs/benchmarks/stage-runs/chain-log.jsonl was run with --skip-gate."
+}

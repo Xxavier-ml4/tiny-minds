@@ -1,0 +1,89 @@
+{
+  "question": "MHA vs GQA vs MQA at equal parameter budget (quality)",
+  "profile": "tiny_mobile",
+  "steps": 250,
+  "lr": 0.003,
+  "rows": [
+    {
+      "lr": 0.003,
+      "steps_completed": 250,
+      "diverged": null,
+      "initial_train_loss": 5.819145202636719,
+      "final_train_loss_mean_last_10": 0.43483997881412506,
+      "min_train_loss": 0.2562059462070465,
+      "initial_val_loss": 5.888804636844973,
+      "final_val_loss": 0.46271662193090735,
+      "grad_norm": {
+        "mean": 1.4344188810583745,
+        "max": 11.188476093962473,
+        "steps_clipped_at_1.0": 192,
+        "steps": 250
+      },
+      "loss_spikes_over_1.5x_running_min": 69,
+      "tokens_per_sec": 3333,
+      "wall_seconds": 103.4,
+      "variant": "mha",
+      "kv_heads": 4,
+      "intermediate": 384,
+      "parameters": 1312896
+    },
+    {
+      "lr": 0.003,
+      "steps_completed": 250,
+      "diverged": null,
+      "initial_train_loss": 6.2518439292907715,
+      "final_train_loss_mean_last_10": 0.441801518201828,
+      "min_train_loss": 0.25087425112724304,
+      "initial_val_loss": 6.241970866715827,
+      "final_val_loss": 0.4626827895235853,
+      "grad_norm": {
+        "mean": 1.5805906161083962,
+        "max": 9.7055938940455,
+        "steps_clipped_at_1.0": 213,
+        "steps": 250
+      },
+      "loss_spikes_over_1.5x_running_min": 89,
+      "tokens_per_sec": 3140,
+      "wall_seconds": 109.8,
+      "variant": "gqa",
+      "kv_heads": 2,
+      "intermediate": 424,
+      "parameters": 1306752
+    },
+    {
+      "lr": 0.003,
+      "steps_completed": 250,
+      "diverged": null,
+      "initial_train_loss": 6.177798271179199,
+      "final_train_loss_mean_last_10": 0.45734318196773527,
+      "min_train_loss": 0.23080238699913025,
+      "initial_val_loss": 6.223451305571056,
+      "final_val_loss": 0.4776985674488301,
+      "grad_norm": {
+        "mean": 1.6667734854408904,
+        "max": 11.251602978170187,
+        "steps_clipped_at_1.0": 230,
+        "steps": 250
+      },
+      "loss_spikes_over_1.5x_running_min": 78,
+      "tokens_per_sec": 4270,
+      "wall_seconds": 80.7,
+      "variant": "mqa",
+      "kv_heads": 1,
+      "intermediate": 448,
+      "parameters": 1312896
+    }
+  ],
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores_visible": 1,
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "threads_env": {
+      "OPENBLAS_NUM_THREADS": null,
+      "OMP_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null
+    }
+  }
+}

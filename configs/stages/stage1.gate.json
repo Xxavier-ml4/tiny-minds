@@ -1,0 +1,10 @@
+{
+  "note": "Promotion gate stage1 -> stage2 (measurable, provisional policy). Thresholds are set BEFORE the demonstration run and are floors, not predictions of quality: validation loss well below the untrained ~6.2 nats/token, and the copy task (the simplest held-out skill in the stage-1 mixture) above chance. Tighten after the first full-budget run on a runner (docs/training/three-stage-plan.md).",
+  "expect_stage": "stage1",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.5},
+    {"metric": "eval.capabilities.copy.accuracy", "min": 0.2}
+  ]
+}

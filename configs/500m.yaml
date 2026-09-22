@@ -1,0 +1,15 @@
+# ~500M parameters (approx_param_count).
+model:
+  hidden_size: 1472
+  num_layers: 20
+  num_heads: 16
+  num_kv_heads: 4
+  intermediate_size: 3904
+  max_seq_len: 4096
+  vocab_size: 32000
+  attention_type: gqa
+  norm_type: rmsnorm
+  mlp_type: swiglu
+  rope_theta: 10000.0
+  tie_embeddings: true
+  sliding_window: 0

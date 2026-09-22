@@ -1,0 +1,294 @@
+{
+  "suite_version": 1,
+  "model": {
+    "parameters": 1214592,
+    "config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+    "provenance": {
+      "checkpoint": "step-00000350",
+      "checkpoint_manifest_sha256": "c48ed3b6271c9ea5b2bf32a4d145b75c99242aeb3d744be429dd5fab7151b2a2",
+      "created_at": "2026-09-21T06:59:10+00:00",
+      "cumulative_steps": 2550,
+      "dataset_hash": "08c4fe42cf42af5dbfb1848f2c2574a7642a2b42c36b25a485e90697e9374e7f",
+      "final_validation": {
+        "step": 350,
+        "val_loss": 0.1770314685114351,
+        "val_ppl": 1.1936686555118552,
+        "val_tokens": 19047
+      },
+      "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+      "global_step": 350,
+      "stage": "stage3",
+      "stage_complete": true,
+      "training_config_hash": "990a76fd665ddc0b32c3560ffc9e9db647c8f7ff4d0d8e803bbb135811a52b93"
+    }
+  },
+  "loss": {
+    "validation": {
+      "loss": 0.17703146362652672,
+      "perplexity": 1.1936686496808933,
+      "loss_tokens": 19047,
+      "by_category": {
+        "copy": 0.08636409852906442,
+        "language": 0.2890100986923804,
+        "structured": 0.3472643656903003,
+        "tool_arithmetic": 0.10782196000218391,
+        "tool_lookup": 0.34017109870910645,
+        "tool_memory": 0.09325386213988046,
+        "tool_result": 0.1458865229350674,
+        "tool_timer": 0.06671068569024403
+      },
+      "dropped_too_long": 0
+    },
+    "eval": {
+      "loss": 0.4831828845360364,
+      "perplexity": 1.621226375134774,
+      "loss_tokens": 29601,
+      "by_category": {
+        "clarification": 1.0668599431566468,
+        "clarification_followup": 0.42357165976194827,
+        "context_retention": 1.1969906223693536,
+        "copy": 0.09313941273852447,
+        "factual_qa": 0.7373459205198823,
+        "instruction": 1.7870028723841127,
+        "language": 0.2882490947884573,
+        "no_tool": 0.859672381426837,
+        "refusal": 0.14457091885972756,
+        "structured": 0.9161334093879251,
+        "tool_arithmetic": 0.172773315539787,
+        "tool_lookup": 0.6644455687014642,
+        "tool_memory": 0.08506378008727332,
+        "tool_result": 0.5311982042207493,
+        "tool_timer": 0.0886327139586288,
+        "tool_weather": 0.6591110229492188
+      },
+      "dropped_too_long": 0
+    }
+  },
+  "capabilities": {
+    "clarification": {
+      "n": 18,
+      "accuracy": 0.0
+    },
+    "clarification_followup": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "context_retention": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "copy": {
+      "n": 20,
+      "accuracy": 0.85
+    },
+    "factual_qa": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "instruction": {
+      "n": 20,
+      "accuracy": 0.6
+    },
+    "no_tool": {
+      "n": 9,
+      "accuracy": 0.0
+    },
+    "refusal": {
+      "n": 20,
+      "accuracy": 0.1
+    },
+    "structured": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "tool_arithmetic": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_lookup": {
+      "n": 20,
+      "accuracy": 0.85,
+      "paraphrase_accuracy": 0.7,
+      "seen_phrasing_accuracy": 1.0
+    },
+    "tool_memory": {
+      "n": 20,
+      "accuracy": 1.0
+    },
+    "tool_result": {
+      "n": 20,
+      "accuracy": 0.15
+    },
+    "tool_timer": {
+      "n": 20,
+      "accuracy": 0.15,
+      "paraphrase_accuracy": 0.14285714285714285,
+      "seen_phrasing_accuracy": 0.15384615384615385
+    },
+    "tool_weather": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    }
+  },
+  "tool_behavior": {
+    "requests_needing_a_tool": 120,
+    "correct_tool_rate": 0.8416666666666667,
+    "argument_accuracy": 0.0375,
+    "wrong_tool_rate": 0.058333333333333334,
+    "no_call_rate": 0.075,
+    "malformed_call_rate": 0.025,
+    "requests_needing_no_tool": 167,
+    "false_positive_call_rate": 0.3532934131736527,
+    "clarification_on_missing_argument_accuracy": 0.0,
+    "clarification_followup_call_accuracy": 0.0,
+    "tool_result_incorporation_accuracy": 0.15,
+    "refusal_accuracy": 0.1
+  },
+  "generation": {
+    "graded_examples": 287,
+    "skipped_prompt_too_long": 0,
+    "max_new_tokens": 96,
+    "mean_response_tokens": 38.99303135888502,
+    "mean_response_chars": 37.99303135888502,
+    "unterminated_rate": 0.0,
+    "mean_char6gram_repetition": 0.002006454551801959,
+    "looping_rate_repetition_over_0.5": 0.0
+  },
+  "timing": {
+    "generated_tokens": 11191,
+    "generation_seconds": 14.574,
+    "tokens_per_second_python_runtime": 767.86,
+    "suite_seconds": 23.67
+  },
+  "failures_sample": [
+    {
+      "id": "eval-copy-0003",
+      "category": "copy",
+      "text": "YBUGXODG"
+    },
+    {
+      "id": "eval-copy-0004",
+      "category": "copy",
+      "text": "WQZBTEFT"
+    },
+    {
+      "id": "eval-copy-0019",
+      "category": "copy",
+      "text": "znpjqux"
+    },
+    {
+      "id": "eval-arith_tool-0000",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"35+51\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0001",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"5*11\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0002",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"41+8\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0003",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"51-51\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0004",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"87-28\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0005",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"59+96\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0006",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"36+46\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0007",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"77+8\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0008",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"64-16\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0009",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"60+80\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0010",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11*12\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0011",
+      "category": "tool_arithmetic",
+      "text": "[\"stre\",\"moon\",\"rain\",\"sand\"]"
+    },
+    {
+      "id": "eval-arith_tool-0012",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"61+8\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0013",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"94+44\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0014",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"37+74\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0015",
+      "category": "tool_arithmetic",
+      "text": "Goood _telcow Iunuingune\"}"
+    },
+    {
+      "id": "eval-arith_tool-0016",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"71-16\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0017",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"88-58\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0018",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11+31\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0019",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"40+10\"}}"
+    },
+    {
+      "id": "eval-arith_result-0000",
+      "category": "tool_result",
+      "text": "99 + 99 = 165."
+    },
+    {
+      "id": "eval-arith_result-0001",
+      "category": "tool_result",
+      "text": "99 - 29 = 29."
+    }
+  ]
+}

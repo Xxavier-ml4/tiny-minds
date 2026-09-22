@@ -1,0 +1,161 @@
+{
+  "kind": "fused",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores_visible": 1,
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "threads_env": {
+      "OPENBLAS_NUM_THREADS": null,
+      "OMP_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null
+    }
+  },
+  "rows": [
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 128,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": false,
+        "step_seconds_median": 0.2023,
+        "steps_per_sec": 4.944,
+        "seconds_per_100_steps": 20.2,
+        "tokens_per_sec": 5063,
+        "examples_per_sec": 39.55,
+        "forward_s": 0.0851,
+        "backward_s": 0.1043,
+        "optimizer_s": 0.0117,
+        "step_seconds_min_max": [
+          0.2006,
+          0.204
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.375,
+        "peak_rss_MB": 233.1
+      }
+    },
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 128,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.1856,
+        "steps_per_sec": 5.387,
+        "seconds_per_100_steps": 18.6,
+        "tokens_per_sec": 5517,
+        "examples_per_sec": 43.1,
+        "forward_s": 0.087,
+        "backward_s": 0.0856,
+        "optimizer_s": 0.0093,
+        "step_seconds_min_max": [
+          0.1773,
+          0.1873
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.375,
+        "peak_rss_MB": 171.1
+      }
+    },
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 256,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": false,
+        "step_seconds_median": 0.5365,
+        "steps_per_sec": 1.864,
+        "seconds_per_100_steps": 53.6,
+        "tokens_per_sec": 3817,
+        "examples_per_sec": 14.91,
+        "forward_s": 0.2644,
+        "backward_s": 0.2535,
+        "optimizer_s": 0.0121,
+        "step_seconds_min_max": [
+          0.5251,
+          0.5471
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.75,
+        "peak_rss_MB": 500.4
+      }
+    },
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 256,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.3916,
+        "steps_per_sec": 2.554,
+        "seconds_per_100_steps": 39.2,
+        "tokens_per_sec": 5230,
+        "examples_per_sec": 20.43,
+        "forward_s": 0.1795,
+        "backward_s": 0.1998,
+        "optimizer_s": 0.0084,
+        "step_seconds_min_max": [
+          0.3863,
+          0.3994
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.75,
+        "peak_rss_MB": 306.1
+      }
+    }
+  ]
+}

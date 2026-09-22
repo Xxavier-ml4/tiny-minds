@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# TinyMind artifacts
+checkpoints/
+*.tm
+*.tmm
+datasets/generated/
+datasets/validated/
+*.log
+
+# Native build output
+native/build/
+native/cmake-build-*/
+*.so
+*.dylib
+*.dll
+*.o
+*.obj
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+*.apk
+*.aab
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,71 @@
+{
+  "config": {
+    "hidden": 128,
+    "layers": 6,
+    "heads": 4,
+    "kv_heads": 2,
+    "intermediate": 384,
+    "seq": 128,
+    "batch": 8,
+    "vocab": 260,
+    "parameters": 1214592
+  },
+  "step_ms_median": {
+    "forward": 89.0,
+    "topo_sort": 0.2,
+    "backward": 144.8,
+    "optimizer": 11.3,
+    "total": 245.2
+  },
+  "tokens_per_sec": 4175,
+  "forward_inclusive_ms_by_module": {
+    "TinyMindTransformer": 123.8,
+    "TransformerBlock": 120.0,
+    "CausalSelfAttention": 67.5,
+    "SwiGLUMLP": 44.0,
+    "Linear": 40.1,
+    "RMSNorm": 7.1
+  },
+  "backward_ms_by_category": {
+    "attention.core(rope/scores/softmax/ctx)": 51.7,
+    "mlp.linear": 48.8,
+    "mlp.elementwise(silu/gate)": 19.4,
+    "attention.linear": 19.2,
+    "norm": 10.7,
+    "other(embed/lm_head/residual)": 5.0,
+    "loss": 1.5
+  },
+  "backward_ms_by_op_top10": {
+    "matmul": 87.2,
+    "mul": 23.9,
+    "getitem": 17.2,
+    "softmax": 9.8,
+    "sigmoid": 8.3,
+    "pow2": 3.5,
+    "cross_entropy": 1.5,
+    "neg": 1.5,
+    "repeat_kv": 1.1,
+    "transpose": 0.9
+  },
+  "graph": {
+    "nodes": 508,
+    "nodes_by_op_top8": {
+      "leaf": 118,
+      "mul": 81,
+      "transpose": 73,
+      "matmul": 55,
+      "add": 43,
+      "getitem": 26,
+      "reshape": 24,
+      "pow2": 13
+    },
+    "retained_MB_data_plus_grad": 368.2
+  },
+  "python_overhead_estimate": {
+    "us_per_node_forward_1elem": 2.42,
+    "us_per_node_backward_1elem": 1.16,
+    "estimated_ms_per_step": 1.8,
+    "share_of_step": 0.0074
+  },
+  "peak_rss_MB": 677.4
+}

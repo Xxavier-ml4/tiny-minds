@@ -1,0 +1,296 @@
+{
+  "suite_version": 1,
+  "model": {
+    "parameters": 1214592,
+    "config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+    "provenance": {
+      "checkpoint": "step-00000700",
+      "checkpoint_manifest_sha256": "3b26c9a040bd525a8d8f93ffbb2ac56b7c2cdaff348ec9cf48dd768c6b3182e0",
+      "created_at": "2026-09-21T06:47:21+00:00",
+      "cumulative_steps": 1300,
+      "dataset_hash": "b0a855efbf21ae7ba835189c07bce9eb2ee7dd1edf6d1b8c3c2e2a47b793ad50",
+      "final_validation": {
+        "step": 700,
+        "val_loss": 0.23765574058119848,
+        "val_ppl": 1.2682725029071822,
+        "val_tokens": 14617
+      },
+      "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+      "global_step": 700,
+      "stage": "stage1",
+      "stage_complete": true,
+      "training_config_hash": "6b111d98ad01eacb1d9ca0d6bd92295a78eef97b99f952ee67921535291eef6b"
+    }
+  },
+  "loss": {
+    "validation": {
+      "loss": 0.2376557407728533,
+      "perplexity": 1.2682725031502529,
+      "loss_tokens": 14617,
+      "by_category": {
+        "clarification_followup": 0.07965433982110792,
+        "context_retention": 0.2303698117330194,
+        "copy": 0.05811340484107871,
+        "language": 0.29009239881455184,
+        "tool_arithmetic": 0.1662825338098387,
+        "tool_lookup": 0.36904104550679523,
+        "tool_memory": 0.12223559748517336,
+        "tool_result": 0.28924375701686833,
+        "tool_timer": 0.09332336982091267,
+        "tool_weather": 0.0827484314258282
+      },
+      "dropped_too_long": 0
+    },
+    "eval": {
+      "loss": 0.9008898138479514,
+      "perplexity": 2.4617926740729543,
+      "loss_tokens": 29778,
+      "by_category": {
+        "clarification": 1.3179913507645886,
+        "clarification_followup": 0.34643707637800286,
+        "context_retention": 0.9979617602442016,
+        "copy": 0.05669754720912687,
+        "factual_qa": 0.9038111097357246,
+        "instruction": 2.1054322222004767,
+        "language": 0.2900063743054027,
+        "no_tool": 0.9419746089626003,
+        "refusal": 4.243400458965215,
+        "structured": 5.023786137551391,
+        "tool_arithmetic": 0.25597890927072975,
+        "tool_lookup": 0.7022242289103434,
+        "tool_memory": 0.1640658935161795,
+        "tool_result": 0.58805675056037,
+        "tool_timer": 0.13162432627312268,
+        "tool_weather": 0.5295063274070747
+      },
+      "dropped_too_long": 0
+    }
+  },
+  "capabilities": {
+    "clarification": {
+      "n": 18,
+      "accuracy": 0.05555555555555555
+    },
+    "clarification_followup": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "context_retention": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "copy": {
+      "n": 20,
+      "accuracy": 0.9
+    },
+    "factual_qa": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "instruction": {
+      "n": 20,
+      "accuracy": 0.4
+    },
+    "no_tool": {
+      "n": 9,
+      "accuracy": 0.1111111111111111
+    },
+    "refusal": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "structured": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "tool_arithmetic": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_lookup": {
+      "n": 20,
+      "accuracy": 0.5,
+      "paraphrase_accuracy": 0.5,
+      "seen_phrasing_accuracy": 0.5
+    },
+    "tool_memory": {
+      "n": 20,
+      "accuracy": 0.8
+    },
+    "tool_result": {
+      "n": 20,
+      "accuracy": 0.05
+    },
+    "tool_timer": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_weather": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    }
+  },
+  "tool_behavior": {
+    "requests_needing_a_tool": 120,
+    "correct_tool_rate": 0.7166666666666667,
+    "argument_accuracy": 0.0,
+    "wrong_tool_rate": 0.058333333333333334,
+    "no_call_rate": 0.058333333333333334,
+    "malformed_call_rate": 0.16666666666666666,
+    "requests_needing_no_tool": 167,
+    "false_positive_call_rate": 0.4251497005988024,
+    "clarification_on_missing_argument_accuracy": 0.05555555555555555,
+    "clarification_followup_call_accuracy": 0.0,
+    "tool_result_incorporation_accuracy": 0.05,
+    "refusal_accuracy": 0.0
+  },
+  "generation": {
+    "graded_examples": 287,
+    "skipped_prompt_too_long": 0,
+    "max_new_tokens": 96,
+    "mean_response_tokens": 41.44250871080139,
+    "mean_response_chars": 40.44599303135889,
+    "unterminated_rate": 0.003484320557491289,
+    "mean_char6gram_repetition": 3.871467286101419e-05,
+    "looping_rate_repetition_over_0.5": 0.0
+  },
+  "timing": {
+    "generated_tokens": 11894,
+    "generation_seconds": 15.352,
+    "tokens_per_second_python_runtime": 774.73,
+    "suite_seconds": 22.73
+  },
+  "failures_sample": [
+    {
+      "id": "eval-copy-0000",
+      "category": "copy",
+      "text": "YYPJUDP"
+    },
+    {
+      "id": "eval-copy-0019",
+      "category": "copy",
+      "text": "znpjqux"
+    },
+    {
+      "id": "eval-arith_tool-0000",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"remember\",\"arguments\":{\"key\":\"meethday\",\"value\":\"255\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0001",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"17+5\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0002",
+      "category": "tool_arithmetic",
+      "text": "The oppital of Iree"
+    },
+    {
+      "id": "eval-arith_tool-0003",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"17-16\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0004",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"17-17\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0005",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11+57\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0006",
+      "category": "tool_arithmetic",
+      "text": "Goood it yelll."
+    },
+    {
+      "id": "eval-arith_tool-0007",
+      "category": "tool_arithmetic",
+      "text": "The opit"
+    },
+    {
+      "id": "eval-arith_tool-0008",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"17+5\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0009",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"17+57\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0010",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"remember\",\"arguments\":{\"key\":\"wifi password hint\",\"value\":\"170\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0011",
+      "category": "tool_arithmetic",
+      "text": "The opor is of bont is doe sin."
+    },
+    {
+      "id": "eval-arith_tool-0012",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"17+57\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0013",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"14+57\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0014",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"13+5\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0015",
+      "category": "tool_arithmetic",
+      "text": "Nice lcityMit ,\",\",\"gees\"aaiteeeeeer\":\"toor areer\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0016",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"17+5\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0017",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"55+37\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0018",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"remember\",\"arguments\":{\"key\":\"meeting room\",\"value\":\"111\"}}"
+    },
+    {
+      "id": "eval-arith_tool-0019",
+      "category": "tool_arithmetic",
+      "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11+5\"}}"
+    },
+    {
+      "id": "eval-arith_result-0000",
+      "category": "tool_result",
+      "text": "18 + 11 = 155."
+    },
+    {
+      "id": "eval-arith_result-0001",
+      "category": "tool_result",
+      "text": "18 - 17 = 11."
+    },
+    {
+      "id": "eval-arith_result-0002",
+      "category": "tool_result",
+      "text": "58 * }}}"
+    }
+  ]
+}

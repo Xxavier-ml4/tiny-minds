@@ -1,0 +1,32 @@
+{
+  "stage2": {
+    "examples": 9766,
+    "mean_len": 136.42,
+    "max_len": 227,
+    "padded": {
+      "real_tokens": 1331423,
+      "cells": 1945104,
+      "utilization": 0.684
+    },
+    "packed": {
+      "real_tokens": 1332273,
+      "cells": 1725768,
+      "utilization": 0.772
+    }
+  },
+  "stage0": {
+    "examples": 1200,
+    "mean_len": 41.92,
+    "max_len": 52,
+    "padded": {
+      "real_tokens": 50306,
+      "cells": 58984,
+      "utilization": 0.853
+    },
+    "packed": {
+      "real_tokens": 48911,
+      "cells": 52408,
+      "utilization": 0.933
+    }
+  }
+}

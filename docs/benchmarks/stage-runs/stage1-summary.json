@@ -1,0 +1,229 @@
+{
+  "checkpoint": "/home/claude/runs/chain/stage1/job3/out/checkpoints/step-00000700",
+  "cumulative_steps": 1300,
+  "dataset": {
+    "dataset_hash": "b0a855efbf21ae7ba835189c07bce9eb2ee7dd1edf6d1b8c3c2e2a47b793ad50",
+    "identity": {
+      "algorithm": "tinymind-dataplan-v1",
+      "batch_size": 8,
+      "epoch_examples": 6650,
+      "max_seq_len": 256,
+      "packing": true,
+      "seed": 0,
+      "sources": [
+        {
+          "content_hash": "efbb7cc805467ef7c63997e49fb168e4de629ad5bd8fd35039d43bdfa989b61e",
+          "name": "dialogue",
+          "num_examples": 700,
+          "weight": 0.1
+        },
+        {
+          "content_hash": "0f76e904fe98ecded940e173e516129dc62457bff097151a6b568196d0e02a90",
+          "name": "instruction",
+          "num_examples": 2800,
+          "weight": 0.45
+        },
+        {
+          "content_hash": "7959a436c18e63bf952de08353dbd877f527c3e14cc0e6a8c2abd165f85df139",
+          "name": "language",
+          "num_examples": 2100,
+          "weight": 0.3
+        },
+        {
+          "content_hash": "05cd816a1027d252748f7a96348e3feb8500a87c02520c46017a8ca92d39d1d5",
+          "name": "tools",
+          "num_examples": 1050,
+          "weight": 0.15
+        }
+      ]
+    },
+    "repeat_factors": {
+      "dialogue": 0.95,
+      "instruction": 1.069,
+      "language": 0.95,
+      "tools": 0.95
+    },
+    "validation_hash": "39440a66b86ce5dbf6333a2e519c0c08cca25762adcd39c42bd40b8334cc714a"
+  },
+  "environment": {
+    "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+    "machine": "x86_64",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "epoch": 1,
+  "examples_processed_total": 12460,
+  "exports": {
+    "fp32_bytes": 4863136,
+    "package": "/home/claude/runs/chain/stage1/job3/out/export",
+    "parameter_count": 1214592,
+    "tm": "/home/claude/runs/chain/stage1/job3/out/export/model.tm"
+  },
+  "final_step": 700,
+  "final_train_loss_mean_last_10_steps": 0.261257167160511,
+  "final_validation": {
+    "val_loss": 0.23765574058119848,
+    "val_ppl": 1.2682725029071822,
+    "val_tokens": 14617
+  },
+  "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+  "initial_step": 545,
+  "initial_train_loss": 6.3071112632751465,
+  "initial_validation": {
+    "val_loss": 6.840741040899594,
+    "val_ppl": 935.1818860450987,
+    "val_tokens": 14617
+  },
+  "loss_tokens_processed_total": 500020,
+  "model_config": {
+    "attention_type": "gqa",
+    "bos_token_id": 1,
+    "dropout": 0.0,
+    "dtype": "float32",
+    "eos_token_id": 2,
+    "hidden_size": 128,
+    "intermediate_size": 384,
+    "max_seq_len": 256,
+    "mlp_type": "swiglu",
+    "norm_epsilon": 1e-06,
+    "norm_type": "rmsnorm",
+    "num_heads": 4,
+    "num_kv_heads": 2,
+    "num_layers": 6,
+    "pad_token_id": 0,
+    "rope_theta": 10000.0,
+    "sliding_window": 0,
+    "tie_embeddings": true,
+    "vocab_size": 260
+  },
+  "parameter_count": 1214592,
+  "parent": {
+    "checkpoint": "step-00000600",
+    "dataset_hash": "573815af8147af6d0cdf8106fe6c7e4dc74fe37cfa2744da8bfd24fce4ed9092",
+    "global_step": 600,
+    "manifest_sha256": "d96401cf3e88a1ac44ee162b0e1765893b9013fdc0b1c96b1ce28cdd11509536",
+    "model_config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+    "optimizer_carried": false,
+    "run_id": null,
+    "stage": "stage0"
+  },
+  "peak_rss_mb": 337.9,
+  "renderer": {
+    "template": "tinymind-chat-v1",
+    "tokenizer_spec_hash": "6748c78a7f2aca167d2f48fdb99f4d690102d7b40aea4b790278a0dedcb0849f"
+  },
+  "resume_notes": [],
+  "resumed_from": "/home/claude/runs/chain/stage1/job3/incoming/checkpoints/step-00000545",
+  "stage": "stage1",
+  "stage_complete": true,
+  "steps_this_run": 155,
+  "stop_reason": "complete",
+  "tokenizer": {
+    "bos_token_id": 1,
+    "byte_offset": 4,
+    "eos_token_id": 2,
+    "pad_token_id": 0,
+    "type": "byte",
+    "unk_token_id": 3,
+    "version": 1,
+    "vocab_size": 260
+  },
+  "tokens_per_second_train_average": 4550.1,
+  "tokens_processed_total": 1107846,
+  "total_steps": 700,
+  "train_seconds_total": 243.479,
+  "training_config": {
+    "batch_size": 8,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "checkpoint_interval": 100,
+    "epoch_examples": 0,
+    "epochs": 1,
+    "eps": 1e-08,
+    "eval_batches": 0,
+    "eval_interval": 100,
+    "gradient_accumulation_steps": 1,
+    "gradient_clip_norm": 1.0,
+    "keep_checkpoints": 3,
+    "learning_rate": 0.002,
+    "log_interval": 25,
+    "max_runtime_seconds": 110.0,
+    "max_seq_len": 256,
+    "max_steps": 700,
+    "min_learning_rate": 0.0002,
+    "mixture": {
+      "dialogue": 0.1,
+      "instruction": 0.45,
+      "language": 0.3,
+      "tools": 0.15
+    },
+    "nonfinite_policy": "error",
+    "overflow": "error",
+    "packing": true,
+    "safety_margin_seconds": 10.0,
+    "scheduler": "cosine",
+    "seed": 0,
+    "stage": "stage1",
+    "warmup_steps": 35,
+    "weight_decay": 0.01,
+    "weight_decay_exclude_norms": true
+  },
+  "validation_history": [
+    {
+      "step": 100,
+      "val_loss": 0.7720170692746059,
+      "val_ppl": 2.1641270484697253,
+      "val_tokens": 14617
+    },
+    {
+      "step": 200,
+      "val_loss": 0.40953015188287756,
+      "val_ppl": 1.506109975908104,
+      "val_tokens": 14617
+    },
+    {
+      "step": 290,
+      "val_loss": 0.33522685872323454,
+      "val_ppl": 1.3982575561685542,
+      "val_tokens": 14617
+    },
+    {
+      "step": 300,
+      "val_loss": 0.324486940155165,
+      "val_ppl": 1.383320737560602,
+      "val_tokens": 14617
+    },
+    {
+      "step": 400,
+      "val_loss": 0.28530305125297906,
+      "val_ppl": 1.3301650752391423,
+      "val_tokens": 14617
+    },
+    {
+      "step": 500,
+      "val_loss": 0.2616822813688718,
+      "val_ppl": 1.2991137242186974,
+      "val_tokens": 14617
+    },
+    {
+      "step": 545,
+      "val_loss": 0.2516337501258117,
+      "val_ppl": 1.286124907928854,
+      "val_tokens": 14617
+    },
+    {
+      "step": 600,
+      "val_loss": 0.24599225072370734,
+      "val_ppl": 1.2788896630339919,
+      "val_tokens": 14617
+    },
+    {
+      "step": 700,
+      "val_loss": 0.23765574058119848,
+      "val_ppl": 1.2682725029071822,
+      "val_tokens": 14617
+    }
+  ],
+  "wall_clock_seconds_this_run": 61.787
+}

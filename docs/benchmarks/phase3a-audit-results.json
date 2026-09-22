@@ -1,0 +1,143 @@
+{
+  "data_pipeline": {
+    "decoded_training_sequences": [
+      "What is the capital of France?",
+      "Add 2 and 3."
+    ],
+    "target_text_stored_but_unused": [
+      "Paris",
+      "{\"name\": \"calculator\", \"arguments\": {\"expr\": \"2+3\"}}"
+    ],
+    "response_text_present_in_training_sequence": [
+      false,
+      false
+    ],
+    "labels_equal_input_ids": true,
+    "role_markers_in_sequence": false,
+    "eos_appended": false,
+    "finding": "the target (assistant response / tool call) is tokenized nowhere: the model is trained to continue the concatenated USER text only"
+  },
+  "tokens_per_second": {
+    "reported_tokens_per_second": [
+      22988,
+      13352,
+      9562,
+      6733,
+      5367,
+      4331,
+      3723,
+      3199
+    ],
+    "measured_from_step_wallclock": [
+      32378,
+      34243,
+      23128,
+      26891,
+      22794,
+      26988,
+      23085
+    ],
+    "finding": "reported value decays roughly as 1/step_index although step time is constant"
+  },
+  "gradient_accumulation": {
+    "equal_length_microbatches": {
+      "max_abs_grad_diff": 1.1920928955078125e-07,
+      "max_abs_grad": 0.875869631767273
+    },
+    "unequal_token_count_microbatches": {
+      "max_abs_grad_diff": 0.12807077169418335,
+      "max_abs_grad": 1.1006497144699097
+    },
+    "finding": "accumulation weights every micro-batch equally, not every token equally; it only matches the large batch when micro-batches carry the same number of loss tokens"
+  },
+  "resume": {
+    "max_abs_weight_diff_after_20_steps_vs_continuous": 0.017651885747909546,
+    "trainer_global_step_after_reload_starts_at": 0,
+    "optimizer_step_count_restored": 10,
+    "lr_schedule_restarted_warmup": true,
+    "finding": "there is no resume: the trainer restarts its step counter, LR warmup, shuffle sequence and epoch from zero; only weights and Adam moments are restorable"
+  },
+  "checkpoint_atomicity": {
+    "previous_valid_checkpoint_survived_interrupted_save": false,
+    "error_on_reload": "BadZipFile: File is not a zip file",
+    "finding": "save_pretrained overwrites weights.npz in place; no temp file, rename, checksum, or previous-checkpoint retention"
+  },
+  "silent_config_knobs": {
+    "results": {
+      "norm_type=layernorm": {
+        "builds_without_error": true,
+        "logits_identical_to_default": true
+      },
+      "mlp_type=gelu_mlp": {
+        "builds_without_error": true,
+        "logits_identical_to_default": true
+      },
+      "sliding_window=2": {
+        "builds_without_error": true,
+        "logits_identical_to_default": true
+      },
+      "dropout=0.5": {
+        "builds_without_error": true,
+        "logits_identical_to_default": true
+      },
+      "dtype=float16": {
+        "builds_without_error": true,
+        "logits_identical_to_default": true
+      },
+      "attention_type=mqa (num_kv_heads still 4)": {
+        "builds_without_error": true,
+        "logits_identical_to_default": true
+      }
+    },
+    "finding": "these settings are accepted and silently ignored, so a config can claim an architecture the code does not implement"
+  },
+  "param_counting": {
+    "rows": [
+      {
+        "config": "tiny tied",
+        "approx_param_count": 1212928,
+        "actual": 1214592,
+        "embedding_only": 33280
+      },
+      {
+        "config": "tiny untied",
+        "approx_param_count": 1212928,
+        "actual": 1247872,
+        "embedding_only": 33280
+      },
+      {
+        "config": "proposed 192x6, 32k vocab",
+        "approx_param_count": 8503296,
+        "actual": null,
+        "embedding_only": 6144000
+      }
+    ],
+    "vocab_32000_x_192": 6144000,
+    "finding": "approx_param_count ignores norms and, for tie_embeddings=False, adds NO lm_head (both branches of its embed expression are identical)"
+  },
+  "backward_recursion": {
+    "python_recursion_limit": 1000,
+    "layers_tested": [
+      {
+        "layers": 2,
+        "backward": "ok"
+      },
+      {
+        "layers": 6,
+        "backward": "ok"
+      },
+      {
+        "layers": 10,
+        "backward": "ok"
+      },
+      {
+        "layers": 24,
+        "backward": "ok"
+      },
+      {
+        "layers": 48,
+        "backward": "ok"
+      }
+    ]
+  }
+}

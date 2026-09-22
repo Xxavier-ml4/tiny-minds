@@ -1,0 +1,33 @@
+# tiny_mobile_plus: 3,493,824 parameters (exact; tinymind.model.config.count_parameters).
+# Larger mobile candidate: ~3.5M parameters, ~13 MiB FP32 / ~3.3 MiB INT8 weights, 256-token context.
+# The whole architecture is in this file: a checkpoint stores it and refuses to resume under a different one.
+# Vocabulary counts toward the mobile budget: the byte tokenizer's 260 ids cost 260 x hidden_size parameters
+# (a 32,000-id vocabulary at hidden 192 would spend 6,144,000 parameters on the embedding alone).
+profile: tiny_mobile_plus
+model:
+  hidden_size: 192
+  num_layers: 8
+  num_heads: 6
+  num_kv_heads: 2
+  intermediate_size: 576
+  max_seq_len: 256
+  vocab_size: 260
+  attention_type: gqa
+  norm_type: rmsnorm
+  mlp_type: swiglu
+  rope_theta: 10000.0
+  tie_embeddings: true
+  sliding_window: 0
+tokenizer:
+  type: byte
+training:
+  stage: stage1
+  batch_size: 16
+  max_seq_len: 256
+  max_steps: 3000
+  warmup_steps: 100
+  learning_rate: 0.001
+  min_learning_rate: 0.0001
+  eval_interval: 250
+  checkpoint_interval: 250
+  log_interval: 25

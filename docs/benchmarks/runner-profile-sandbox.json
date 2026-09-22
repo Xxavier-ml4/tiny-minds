@@ -1,0 +1,41 @@
+{
+  "environment": {
+    "os": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpu_count": 1,
+    "allowed_cores": 1,
+    "ram_mb": 4000,
+    "blas": {
+      "name": "scipy-openblas",
+      "version": "0.3.31.188.0",
+      "openblas_config": "OpenBLAS 0.3.31.188.0  USE64BITINT DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=64"
+    },
+    "github_runner": {
+      "RUNNER_OS": null,
+      "RUNNER_ARCH": null,
+      "RUNNER_NAME": null,
+      "ImageOS": null,
+      "ImageVersion": null
+    }
+  },
+  "benchmark": {
+    "profile": "tiny_mobile",
+    "batch": 8,
+    "seq": 128,
+    "tokens_per_sec_by_threads": {
+      "1": [
+        5950.0,
+        6047.0
+      ]
+    }
+  },
+  "selection": {
+    "chosen_threads": 1,
+    "median_tokens_per_sec": {
+      "1": 5998
+    },
+    "rule": "a higher thread count must beat the next-lower choice by > 5%"
+  }
+}

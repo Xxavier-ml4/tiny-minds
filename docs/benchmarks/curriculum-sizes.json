@@ -1,0 +1,156 @@
+{
+  "stage0": {
+    "sources": {
+      "sanity": {
+        "examples": 4000,
+        "tokens": 170872,
+        "loss_tokens": 25724
+      }
+    },
+    "train_examples": 4000,
+    "train_tokens": 170872,
+    "train_loss_tokens": 25724,
+    "mixture": {
+      "sanity": 1.0
+    },
+    "val_examples": 200,
+    "val_tokens": 8584,
+    "eval_examples": 666,
+    "eval_dropped_for_overlap": 0
+  },
+  "stage1": {
+    "sources": {
+      "language": {
+        "examples": 6000,
+        "tokens": 486385,
+        "loss_tokens": 480385
+      },
+      "instruction": {
+        "examples": 8000,
+        "tokens": 368363,
+        "loss_tokens": 54721
+      },
+      "tools": {
+        "examples": 3000,
+        "tokens": 495995,
+        "loss_tokens": 172449
+      },
+      "dialogue": {
+        "examples": 1485,
+        "tokens": 265377,
+        "loss_tokens": 82746
+      }
+    },
+    "train_examples": 18485,
+    "train_tokens": 1616120,
+    "train_loss_tokens": 790301,
+    "mixture": {
+      "language": 0.3,
+      "instruction": 0.45,
+      "tools": 0.15,
+      "dialogue": 0.1
+    },
+    "val_examples": 850,
+    "val_tokens": 67601,
+    "eval_examples": 660,
+    "eval_dropped_for_overlap": 6
+  },
+  "stage2": {
+    "sources": {
+      "tools": {
+        "examples": 12000,
+        "tokens": 2037741,
+        "loss_tokens": 728747
+      },
+      "structured": {
+        "examples": 3000,
+        "tokens": 419597,
+        "loss_tokens": 72186
+      },
+      "dialogue": {
+        "examples": 1488,
+        "tokens": 265951,
+        "loss_tokens": 82956
+      },
+      "safety": {
+        "examples": 234,
+        "tokens": 34541,
+        "loss_tokens": 8558
+      },
+      "instruction": {
+        "examples": 5000,
+        "tokens": 239062,
+        "loss_tokens": 35063
+      },
+      "language": {
+        "examples": 3000,
+        "tokens": 243761,
+        "loss_tokens": 240761
+      }
+    },
+    "train_examples": 24722,
+    "train_tokens": 3240653,
+    "train_loss_tokens": 1168271,
+    "mixture": {
+      "tools": 0.35,
+      "structured": 0.1,
+      "dialogue": 0.2,
+      "safety": 0.08,
+      "instruction": 0.17,
+      "language": 0.1
+    },
+    "val_examples": 1150,
+    "val_tokens": 148352,
+    "eval_examples": 657,
+    "eval_dropped_for_overlap": 9
+  },
+  "stage3": {
+    "sources": {
+      "tools": {
+        "examples": 12000,
+        "tokens": 2044854,
+        "loss_tokens": 723063
+      },
+      "structured": {
+        "examples": 3000,
+        "tokens": 419597,
+        "loss_tokens": 72186
+      },
+      "dialogue": {
+        "examples": 1488,
+        "tokens": 265951,
+        "loss_tokens": 82956
+      },
+      "safety": {
+        "examples": 234,
+        "tokens": 34541,
+        "loss_tokens": 8558
+      },
+      "instruction": {
+        "examples": 4000,
+        "tokens": 196142,
+        "loss_tokens": 28563
+      },
+      "language": {
+        "examples": 3000,
+        "tokens": 243761,
+        "loss_tokens": 240761
+      }
+    },
+    "train_examples": 23722,
+    "train_tokens": 3204846,
+    "train_loss_tokens": 1156087,
+    "mixture": {
+      "tools": 0.35,
+      "structured": 0.1,
+      "dialogue": 0.2,
+      "safety": 0.1,
+      "instruction": 0.15,
+      "language": 0.1
+    },
+    "val_examples": 1100,
+    "val_tokens": 144832,
+    "eval_examples": 658,
+    "eval_dropped_for_overlap": 8
+  }
+}

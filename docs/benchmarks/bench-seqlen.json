@@ -1,0 +1,161 @@
+{
+  "kind": "seqlen",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores_visible": 1,
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "threads_env": {
+      "OPENBLAS_NUM_THREADS": null,
+      "OMP_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null
+    }
+  },
+  "rows": [
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 64,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 32,
+        "accumulation": 1,
+        "effective_batch": 32,
+        "fused_ops": true,
+        "step_seconds_median": 0.3091,
+        "steps_per_sec": 3.236,
+        "seconds_per_100_steps": 30.9,
+        "tokens_per_sec": 6626,
+        "examples_per_sec": 103.54,
+        "forward_s": 0.1327,
+        "backward_s": 0.1552,
+        "optimizer_s": 0.0095,
+        "step_seconds_min_max": [
+          0.2938,
+          0.3295
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.188,
+        "peak_rss_MB": 270.0
+      }
+    },
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 128,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 16,
+        "accumulation": 1,
+        "effective_batch": 16,
+        "fused_ops": true,
+        "step_seconds_median": 0.3347,
+        "steps_per_sec": 2.988,
+        "seconds_per_100_steps": 33.5,
+        "tokens_per_sec": 6119,
+        "examples_per_sec": 47.8,
+        "forward_s": 0.1497,
+        "backward_s": 0.1732,
+        "optimizer_s": 0.0089,
+        "step_seconds_min_max": [
+          0.3321,
+          0.3352
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.375,
+        "peak_rss_MB": 282.0
+      }
+    },
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 256,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.3934,
+        "steps_per_sec": 2.542,
+        "seconds_per_100_steps": 39.3,
+        "tokens_per_sec": 5205,
+        "examples_per_sec": 20.33,
+        "forward_s": 0.1822,
+        "backward_s": 0.1977,
+        "optimizer_s": 0.0096,
+        "step_seconds_min_max": [
+          0.3883,
+          0.456
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.75,
+        "peak_rss_MB": 306.0
+      }
+    },
+    {
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 512,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 4,
+        "accumulation": 1,
+        "effective_batch": 4,
+        "fused_ops": true,
+        "step_seconds_median": 0.5125,
+        "steps_per_sec": 1.951,
+        "seconds_per_100_steps": 51.3,
+        "tokens_per_sec": 3996,
+        "examples_per_sec": 7.8,
+        "forward_s": 0.242,
+        "backward_s": 0.2553,
+        "optimizer_s": 0.0086,
+        "step_seconds_min_max": [
+          0.5046,
+          0.5236
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 1.5,
+        "peak_rss_MB": 355.1
+      }
+    }
+  ]
+}

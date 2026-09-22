@@ -1,0 +1,11 @@
+{
+  "note": "Promotion gate stage2 -> stage3 (measurable, provisional policy, set before the demonstration run). Requires a real amount of tool routing on held-out prompts and that the model does not call tools when none is needed. Floors, not predictions; see docs/training/three-stage-plan.md.",
+  "expect_stage": "stage2",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.0},
+    {"metric": "eval.tool_behavior.correct_tool_rate", "min": 0.3},
+    {"metric": "eval.tool_behavior.false_positive_call_rate", "max": 0.3}
+  ]
+}

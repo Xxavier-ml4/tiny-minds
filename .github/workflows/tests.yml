@@ -1,0 +1,90 @@
+name: tests
+
+# STATUS: written against documented GitHub Actions / setup-python / cmake
+# behavior but not run against a live GitHub Actions runner from within
+# this delivery's sandbox (no network access — see STATUS.md). The Python
+# test suite (tests/; 281 at Phase 3A, more since — see STATUS.md for the current count) and the native test suite
+# (native/tests/test_native.cpp) it invokes below *have* both been run
+# directly in this sandbox (via `python3 -m unittest` and a direct g++
+# compile, respectively, since neither pytest nor cmake are installed
+# here) — see STATUS.md for the exact commands and their output.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - name: Run tests (pytest, falls back to the same files unittest runs)
+        run: pytest tests/ -v
+      - name: Compile check every module
+        run: python -m py_compile $(find tinymind -name '*.py')
+
+  native-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -B native/build -S native -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build native/build --config Release
+      - name: Test
+        run: ctest --test-dir native/build --output-on-failure
+
+  model-format-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: .tm format round-trip and malformed-file tests
+        run: pytest tests/test_format.py tests/model/test_tm_export.py -v
+
+  synthetic-training-acceptance:
+    # The brief's own "critical acceptance test" (Phase 3A section 20): if
+    # this job fails, treat it as a stop-and-debug signal, not a flaky test
+    # to retry — a model that cannot overfit a tiny synthetic dataset means
+    # something in the forward/backward path is wrong, not unlucky.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: Synthetic overfitting + gradient-checked model tests
+        run: pytest tests/training/test_training.py tests/model/ -v
+      - name: End-to-end pipeline sanity (train -> interrupt -> exact resume -> verified package)
+        run: python examples/smoke_train.py
+
+  training-pipeline:
+    # Phase 3B: the properties the multi-stage GitHub workflow depends on. A failure here means a stage could
+    # resume wrongly, promote a corrupt artifact, or lose its checkpoint: treat it as stop-and-debug.
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - name: Split-run == continuous run, atomic checkpoints, mismatch rejection, time budget
+        run: pytest tests/training/ -v
+      - name: Stage hand-off between jobs, workflow structure, packages, CLI
+        run: pytest tests/ci/ tests/export/ tests/test_cli_training.py -v

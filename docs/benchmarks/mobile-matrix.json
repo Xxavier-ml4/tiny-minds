@@ -1,0 +1,316 @@
+{
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores_visible": 1,
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "threads_env": {
+      "OPENBLAS_NUM_THREADS": null,
+      "OMP_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null
+    }
+  },
+  "prompt_len": 64,
+  "decode_tokens": 32,
+  "rows": [
+    {
+      "profile": "tiny_debug",
+      "model": {
+        "parameters": 115264,
+        "hidden": 64,
+        "layers": 2,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 192,
+        "vocab": 260,
+        "seq_len": 128
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.0564,
+        "steps_per_sec": 17.72,
+        "seconds_per_100_steps": 5.6,
+        "tokens_per_sec": 18145,
+        "examples_per_sec": 141.76,
+        "forward_s": 0.0249,
+        "backward_s": 0.0276,
+        "optimizer_s": 0.0049,
+        "step_seconds_min_max": [
+          0.056,
+          0.0632
+        ]
+      },
+      "inference": {
+        "python_reference": {
+          "prompt_len": 64,
+          "prefill_ms_incl_first_token": 1.6,
+          "prefill_tokens_per_sec": 39882.4,
+          "decode_ms_per_token": 0.744,
+          "decode_tokens_per_sec": 1343.2
+        },
+        "native_cpp": {
+          "model": "/tmp/mobile-matrix-an5lik_k/tiny_debug/model.tm",
+          "parameters": 115264,
+          "hidden": 64,
+          "layers": 2,
+          "heads": 4,
+          "kv_heads": 2,
+          "prompt_len": 64,
+          "decode_tokens": 32,
+          "repeats": 5,
+          "load_ms": 1.84,
+          "prefill_full_forward_ms_median": 7.88,
+          "prefill_tokens_per_sec": 8120.9,
+          "decode_ms_per_token_median": 0.209,
+          "decode_tokens_per_sec": 4792.6,
+          "baseline_rss_kb": 3656,
+          "peak_rss_kb": 4692,
+          "checksum": 26425
+        }
+      },
+      "storage": {
+        "fp32_tm_bytes": 463136,
+        "int8_embed_fp32_tm_bytes": 175328,
+        "int8_embed_int8_tm_bytes": 126592,
+        "fp32_MiB": 0.442,
+        "int8_embed_fp32_MiB": 0.167
+      },
+      "memory": {
+        "budget": {
+          "parameters": 115264,
+          "embedding_parameters": 16640,
+          "fp32_weight_bytes": 461056,
+          "fp32_weight_MiB": 0.44,
+          "int8_weight_bytes": 171264,
+          "int8_weight_MiB": 0.163,
+          "int8_quantizes_embeddings": false,
+          "kv_cache": {
+            "128": {
+              "bytes": 65536,
+              "MiB": 0.062
+            },
+            "256": {
+              "bytes": 131072,
+              "MiB": 0.125
+            }
+          },
+          "runtime_ram_estimate": {
+            "128": {
+              "fp32_MiB": 1.35,
+              "int8_weights_dequantized_on_the_fly_MiB": 1.07
+            },
+            "256": {
+              "fp32_MiB": 2.76,
+              "int8_weights_dequantized_on_the_fly_MiB": 2.48
+            }
+          },
+          "note": "kv_cache is exact; runtime_ram_estimate = fp32 weights + KV cache + scratch (an estimate; measure on device)"
+        },
+        "python_training_peak_rss_MB": 71.0
+      }
+    },
+    {
+      "profile": "tiny_mobile",
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 256
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.786,
+        "steps_per_sec": 1.272,
+        "seconds_per_100_steps": 78.6,
+        "tokens_per_sec": 2606,
+        "examples_per_sec": 10.18,
+        "forward_s": 0.3278,
+        "backward_s": 0.3998,
+        "optimizer_s": 0.0182,
+        "step_seconds_min_max": [
+          0.7376,
+          0.7965
+        ]
+      },
+      "inference": {
+        "python_reference": {
+          "prompt_len": 64,
+          "prefill_ms_incl_first_token": 10.69,
+          "prefill_tokens_per_sec": 5984.4,
+          "decode_ms_per_token": 2.614,
+          "decode_tokens_per_sec": 382.6
+        },
+        "native_cpp": {
+          "model": "/tmp/mobile-matrix-an5lik_k/tiny_mobile/model.tm",
+          "parameters": 1214592,
+          "hidden": 128,
+          "layers": 6,
+          "heads": 4,
+          "kv_heads": 2,
+          "prompt_len": 64,
+          "decode_tokens": 32,
+          "repeats": 5,
+          "load_ms": 33.95,
+          "prefill_full_forward_ms_median": 87.89,
+          "prefill_tokens_per_sec": 728.2,
+          "decode_ms_per_token_median": 1.731,
+          "decode_tokens_per_sec": 577.9,
+          "baseline_rss_kb": 3696,
+          "peak_rss_kb": 10300,
+          "checksum": 36135
+        }
+      },
+      "storage": {
+        "fp32_tm_bytes": 4862592,
+        "int8_embed_fp32_tm_bytes": 1360960,
+        "int8_embed_int8_tm_bytes": 1262272,
+        "fp32_MiB": 4.637,
+        "int8_embed_fp32_MiB": 1.298
+      },
+      "memory": {
+        "budget": {
+          "parameters": 1214592,
+          "embedding_parameters": 33280,
+          "fp32_weight_bytes": 4858368,
+          "fp32_weight_MiB": 4.633,
+          "int8_weight_bytes": 1350144,
+          "int8_weight_MiB": 1.288,
+          "int8_quantizes_embeddings": false,
+          "kv_cache": {
+            "128": {
+              "bytes": 393216,
+              "MiB": 0.375
+            },
+            "256": {
+              "bytes": 786432,
+              "MiB": 0.75
+            }
+          },
+          "runtime_ram_estimate": {
+            "128": {
+              "fp32_MiB": 6.32,
+              "int8_weights_dequantized_on_the_fly_MiB": 2.98
+            },
+            "256": {
+              "fp32_MiB": 8.51,
+              "int8_weights_dequantized_on_the_fly_MiB": 5.17
+            }
+          },
+          "note": "kv_cache is exact; runtime_ram_estimate = fp32 weights + KV cache + scratch (an estimate; measure on device)"
+        },
+        "python_training_peak_rss_MB": 309.8
+      }
+    },
+    {
+      "profile": "tiny_mobile_plus",
+      "model": {
+        "parameters": 3493824,
+        "hidden": 192,
+        "layers": 8,
+        "heads": 6,
+        "kv_heads": 2,
+        "intermediate": 576,
+        "vocab": 260,
+        "seq_len": 256
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 1.7356,
+        "steps_per_sec": 0.576,
+        "seconds_per_100_steps": 173.6,
+        "tokens_per_sec": 1180,
+        "examples_per_sec": 4.61,
+        "forward_s": 0.7234,
+        "backward_s": 0.9517,
+        "optimizer_s": 0.0544,
+        "step_seconds_min_max": [
+          1.6672,
+          1.8057
+        ]
+      },
+      "inference": {
+        "python_reference": {
+          "prompt_len": 64,
+          "prefill_ms_incl_first_token": 26.65,
+          "prefill_tokens_per_sec": 2401.7,
+          "decode_ms_per_token": 4.181,
+          "decode_tokens_per_sec": 239.2
+        },
+        "native_cpp": {
+          "model": "/tmp/mobile-matrix-an5lik_k/tiny_mobile_plus/model.tm",
+          "parameters": 3493824,
+          "hidden": 192,
+          "layers": 8,
+          "heads": 6,
+          "kv_heads": 2,
+          "prompt_len": 64,
+          "decode_tokens": 32,
+          "repeats": 5,
+          "load_ms": 103.16,
+          "prefill_full_forward_ms_median": 261.2,
+          "prefill_tokens_per_sec": 245.0,
+          "decode_ms_per_token_median": 4.818,
+          "decode_tokens_per_sec": 207.6,
+          "baseline_rss_kb": 3660,
+          "peak_rss_kb": 19888,
+          "checksum": 18210
+        }
+      },
+      "storage": {
+        "fp32_tm_bytes": 13980576,
+        "int8_embed_fp32_tm_bytes": 3726944,
+        "int8_embed_int8_tm_bytes": 3578368,
+        "fp32_MiB": 13.333,
+        "int8_embed_fp32_MiB": 3.554
+      },
+      "memory": {
+        "budget": {
+          "parameters": 3493824,
+          "embedding_parameters": 49920,
+          "fp32_weight_bytes": 13975296,
+          "fp32_weight_MiB": 13.328,
+          "int8_weight_bytes": 3712768,
+          "int8_weight_MiB": 3.541,
+          "int8_quantizes_embeddings": false,
+          "kv_cache": {
+            "128": {
+              "bytes": 524288,
+              "MiB": 0.5
+            },
+            "256": {
+              "bytes": 1048576,
+              "MiB": 1.0
+            }
+          },
+          "runtime_ram_estimate": {
+            "128": {
+              "fp32_MiB": 15.7,
+              "int8_weights_dequantized_on_the_fly_MiB": 5.92
+            },
+            "256": {
+              "fp32_MiB": 18.83,
+              "int8_weights_dequantized_on_the_fly_MiB": 9.04
+            }
+          },
+          "note": "kv_cache is exact; runtime_ram_estimate = fp32 weights + KV cache + scratch (an estimate; measure on device)"
+        },
+        "python_training_peak_rss_MB": 576.7
+      }
+    }
+  ],
+  "note": "latency measured on the machine above (not a phone); native = plain g++ -O2, no -march=native"
+}

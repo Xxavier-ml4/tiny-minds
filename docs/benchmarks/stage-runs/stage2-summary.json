@@ -1,0 +1,263 @@
+{
+  "checkpoint": "/home/claude/runs/chain/stage2/job4/out/checkpoints/step-00000900",
+  "cumulative_steps": 2200,
+  "dataset": {
+    "dataset_hash": "b22b29b67922c62603e5c745a6dc500a211c31922dbc5c2ddde77654e403773d",
+    "identity": {
+      "algorithm": "tinymind-dataplan-v1",
+      "batch_size": 8,
+      "epoch_examples": 9766,
+      "max_seq_len": 256,
+      "packing": true,
+      "seed": 0,
+      "sources": [
+        {
+          "content_hash": "09f285ca218f645bd71a1f38359f83b59f4b79703c36f19e9adb1166f45c1df0",
+          "name": "dialogue",
+          "num_examples": 1482,
+          "weight": 0.2
+        },
+        {
+          "content_hash": "38ed05bb371f3b88560629e9978835e9220c75793c80609d4702559300c494ae",
+          "name": "instruction",
+          "num_examples": 1750,
+          "weight": 0.17
+        },
+        {
+          "content_hash": "2f2a5d12e53a519540aa0f7c2ecf18fb511cdd19227e8d3337b5917074564bd6",
+          "name": "language",
+          "num_examples": 1050,
+          "weight": 0.1
+        },
+        {
+          "content_hash": "290f7fb25be07da9775c48a33b66fea7848970da6eb9c9b30a49b3651a20b69b",
+          "name": "safety",
+          "num_examples": 234,
+          "weight": 0.08
+        },
+        {
+          "content_hash": "502b05101b98d1abf8f490792afd26c8914d010ce93de6f126ab495729837eee",
+          "name": "structured",
+          "num_examples": 1050,
+          "weight": 0.1
+        },
+        {
+          "content_hash": "a771059040b63f71ab9466b107142661ccc1fe8f9748f2786ab0904fd0966ae8",
+          "name": "tools",
+          "num_examples": 4200,
+          "weight": 0.35
+        }
+      ]
+    },
+    "repeat_factors": {
+      "dialogue": 1.318,
+      "instruction": 0.949,
+      "language": 0.93,
+      "safety": 3.338,
+      "structured": 0.93,
+      "tools": 0.814
+    },
+    "validation_hash": "8c136613d3d337d239a437638c0482fd3062dd871d1e0fd1f1018aaa8b29fb6f"
+  },
+  "environment": {
+    "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+    "machine": "x86_64",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "epoch": 0,
+  "examples_processed_total": 9249,
+  "exports": {
+    "fp32_bytes": 4863136,
+    "package": "/home/claude/runs/chain/stage2/job4/out/export",
+    "parameter_count": 1214592,
+    "tm": "/home/claude/runs/chain/stage2/job4/out/export/model.tm"
+  },
+  "final_step": 900,
+  "final_train_loss_mean_last_10_steps": 0.15993902683258057,
+  "final_validation": {
+    "val_loss": 0.18963112967860854,
+    "val_ppl": 1.2088036236278696,
+    "val_tokens": 19388
+  },
+  "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+  "initial_step": 796,
+  "initial_train_loss": 0.22950945794582367,
+  "initial_validation": {
+    "val_loss": 0.5401243157108371,
+    "val_ppl": 1.7162202020582065,
+    "val_tokens": 19388
+  },
+  "loss_tokens_processed_total": 427468,
+  "model_config": {
+    "attention_type": "gqa",
+    "bos_token_id": 1,
+    "dropout": 0.0,
+    "dtype": "float32",
+    "eos_token_id": 2,
+    "hidden_size": 128,
+    "intermediate_size": 384,
+    "max_seq_len": 256,
+    "mlp_type": "swiglu",
+    "norm_epsilon": 1e-06,
+    "norm_type": "rmsnorm",
+    "num_heads": 4,
+    "num_kv_heads": 2,
+    "num_layers": 6,
+    "pad_token_id": 0,
+    "rope_theta": 10000.0,
+    "sliding_window": 0,
+    "tie_embeddings": true,
+    "vocab_size": 260
+  },
+  "parameter_count": 1214592,
+  "parent": {
+    "checkpoint": "step-00000700",
+    "dataset_hash": "b0a855efbf21ae7ba835189c07bce9eb2ee7dd1edf6d1b8c3c2e2a47b793ad50",
+    "global_step": 700,
+    "manifest_sha256": "3b26c9a040bd525a8d8f93ffbb2ac56b7c2cdaff348ec9cf48dd768c6b3182e0",
+    "model_config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+    "optimizer_carried": false,
+    "run_id": null,
+    "stage": "stage1"
+  },
+  "peak_rss_mb": 355.4,
+  "renderer": {
+    "template": "tinymind-chat-v1",
+    "tokenizer_spec_hash": "6748c78a7f2aca167d2f48fdb99f4d690102d7b40aea4b790278a0dedcb0849f"
+  },
+  "resume_notes": [],
+  "resumed_from": "/home/claude/runs/chain/stage2/job4/incoming/checkpoints/step-00000796",
+  "stage": "stage2",
+  "stage_complete": true,
+  "steps_this_run": 104,
+  "stop_reason": "complete",
+  "tokenizer": {
+    "bos_token_id": 1,
+    "byte_offset": 4,
+    "eos_token_id": 2,
+    "pad_token_id": 0,
+    "type": "byte",
+    "unk_token_id": 3,
+    "version": 1,
+    "vocab_size": 260
+  },
+  "tokens_per_second_train_average": 4173.7,
+  "tokens_processed_total": 1272219,
+  "total_steps": 900,
+  "train_seconds_total": 304.819,
+  "training_config": {
+    "batch_size": 8,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "checkpoint_interval": 100,
+    "epoch_examples": 0,
+    "epochs": 1,
+    "eps": 1e-08,
+    "eval_batches": 0,
+    "eval_interval": 100,
+    "gradient_accumulation_steps": 1,
+    "gradient_clip_norm": 1.0,
+    "keep_checkpoints": 3,
+    "learning_rate": 0.001,
+    "log_interval": 25,
+    "max_runtime_seconds": 110.0,
+    "max_seq_len": 256,
+    "max_steps": 900,
+    "min_learning_rate": 0.0001,
+    "mixture": {
+      "dialogue": 0.2,
+      "instruction": 0.17,
+      "language": 0.1,
+      "safety": 0.08,
+      "structured": 0.1,
+      "tools": 0.35
+    },
+    "nonfinite_policy": "error",
+    "overflow": "error",
+    "packing": true,
+    "safety_margin_seconds": 10.0,
+    "scheduler": "cosine",
+    "seed": 0,
+    "stage": "stage2",
+    "warmup_steps": 45,
+    "weight_decay": 0.01,
+    "weight_decay_exclude_norms": true
+  },
+  "validation_history": [
+    {
+      "step": 100,
+      "val_loss": 0.3212547402591442,
+      "val_ppl": 1.3788567864938661,
+      "val_tokens": 19388
+    },
+    {
+      "step": 200,
+      "val_loss": 0.29946541043441516,
+      "val_ppl": 1.3491373799934703,
+      "val_tokens": 19388
+    },
+    {
+      "step": 276,
+      "val_loss": 0.27320068458539815,
+      "val_ppl": 1.3141639508106047,
+      "val_tokens": 19388
+    },
+    {
+      "step": 300,
+      "val_loss": 0.2744451888399024,
+      "val_ppl": 1.3158004515433501,
+      "val_tokens": 19388
+    },
+    {
+      "step": 400,
+      "val_loss": 0.2521485099847572,
+      "val_ppl": 1.2867871238315052,
+      "val_tokens": 19388
+    },
+    {
+      "step": 500,
+      "val_loss": 0.23271691983622178,
+      "val_ppl": 1.2620241747466485,
+      "val_tokens": 19388
+    },
+    {
+      "step": 531,
+      "val_loss": 0.22060456776682902,
+      "val_ppl": 1.2468302961814712,
+      "val_tokens": 19388
+    },
+    {
+      "step": 600,
+      "val_loss": 0.2132429432224583,
+      "val_ppl": 1.2376853019772445,
+      "val_tokens": 19388
+    },
+    {
+      "step": 700,
+      "val_loss": 0.20414316056560236,
+      "val_ppl": 1.2264737235605143,
+      "val_tokens": 19388
+    },
+    {
+      "step": 796,
+      "val_loss": 0.19441335088620856,
+      "val_ppl": 1.214598234464639,
+      "val_tokens": 19388
+    },
+    {
+      "step": 800,
+      "val_loss": 0.19420974260018933,
+      "val_ppl": 1.2143509573746043,
+      "val_tokens": 19388
+    },
+    {
+      "step": 900,
+      "val_loss": 0.18963112967860854,
+      "val_ppl": 1.2088036236278696,
+      "val_tokens": 19388
+    }
+  ],
+  "wall_clock_seconds_this_run": 45.395
+}

@@ -1,0 +1,273 @@
+# Multi-stage CPU training of a tiny TinyMind model on GitHub-hosted runners.
+#
+# One parameterised workflow runs any stage. A job starts on a clean machine, so state moves between
+# jobs ONLY as a GitHub artifact (a "stage bundle", see tinymind/ci/stage_io.py): this run downloads the
+# artifact named in `resume_artifact`, verifies it (checksums, checkpoint integrity, identity, model
+# config, optional pinned manifest hash, promotion gate) BEFORE trusting it, trains until the stage is
+# complete or its own time budget runs out (checkpointing + exporting first — it is never killed
+# mid-write), then uploads a new bundle whose name says exactly what it contains.
+#
+#   Stage 1 from scratch:      stage=stage1, resume_artifact empty
+#   Stage 1 needs more time:   stage=stage1, resume_artifact=<the stage1 bundle>, resume_mode=auto  -> resume
+#   Stage 2 from stage 1:      stage=stage2, resume_artifact=<the COMPLETE stage1 bundle>            -> init-from
+#
+# No secrets are embedded. Permissions: `contents: read`, and `actions: read` so this workflow may download
+# an artifact produced by another run of the same repository (via GITHUB_TOKEN). Publishing to a GitHub
+# Release / Hugging Face is optional, off by default, and never fails the run.
+name: train-stage
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Stage to run"
+        required: true
+        type: choice
+        options: [stage0, stage1, stage2, stage3]
+      config:
+        description: "Model profile: a name in configs/ (tiny_debug, tiny_mobile, tiny_mobile_plus)"
+        required: true
+        default: tiny_mobile
+        type: string
+      resume_artifact:
+        description: "Name of the previous stage bundle to continue from (empty = start from scratch)"
+        required: false
+        default: ""
+        type: string
+      resume_run_id:
+        description: "Run id that produced resume_artifact (empty = find the newest artifact with that name)"
+        required: false
+        default: ""
+        type: string
+      resume_mode:
+        description: "auto | resume (same stage) | init-from (next stage, needs a completed stage)"
+        required: false
+        default: auto
+        type: choice
+        options: [auto, resume, init-from]
+      expect_manifest_sha256:
+        description: "Optional: pin the incoming checkpoint manifest's SHA-256 (from the previous run's summary)"
+        required: false
+        default: ""
+        type: string
+      max_hours:
+        description: "Training wall-clock budget in hours (0.05-5.5). The trainer stops itself with a checkpoint before it."
+        required: false
+        default: "5"
+        type: string
+      dataset:
+        description: "'curriculum' = generate this stage's curriculum, or a repo directory with train_*.jsonl / val.jsonl / eval.jsonl"
+        required: false
+        default: curriculum
+        type: string
+      data_scale:
+        description: "Curriculum size multiplier (must be identical in every job of a stage)"
+        required: false
+        default: "1.0"
+        type: string
+      seed:
+        description: "Seed (must be identical in every job of a stage)"
+        required: false
+        default: "0"
+        type: string
+      skip_gate:
+        description: "Skip the parent stage's promotion gate (engineering runs only)"
+        required: false
+        default: false
+        type: boolean
+      publish:
+        description: "After a COMPLETE stage, also publish the model to a GitHub Release (and Hugging Face if HF_TOKEN is set)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: train-${{ inputs.config }}-${{ inputs.stage }}
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    # Hard backstop only: the trainer enforces its own budget (max_hours) and exits cleanly first.
+    timeout-minutes: 355
+    env:
+      # Inputs are passed through the environment, never interpolated into shell text (script-injection safe).
+      STAGE: ${{ inputs.stage }}
+      PROFILE: ${{ inputs.config }}
+      SEED: ${{ inputs.seed }}
+      DATA_SCALE: ${{ inputs.data_scale }}
+      DATASET: ${{ inputs.dataset }}
+      MAX_HOURS: ${{ inputs.max_hours }}
+      RESUME_MODE: ${{ inputs.resume_mode }}
+    outputs:
+      artifact_name: ${{ steps.bundle.outputs.artifact_name }}
+      stage_complete: ${{ steps.bundle.outputs.stage_complete }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install (NumPy + PyYAML only; no deep-learning framework)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Check the time budget
+        id: budget
+        run: python -m tinymind.ci.stage_io runtime --max-hours "$MAX_HOURS"
+
+      - name: Probe the runner (environment, BLAS, thread count)
+        run: python benchmarks/runner_probe.py --profile "$PROFILE" --out runner_profile.json --github-env "$GITHUB_ENV"
+
+      - name: Prepare data
+        run: |
+          if [ "$DATASET" = "curriculum" ]; then
+            python -m tinymind.cli data build-curriculum --stage "$STAGE" --out data --seed "$SEED" --scale "$DATA_SCALE"
+            echo "DATA_DIR=data" >> "$GITHUB_ENV"
+          else
+            echo "DATA_DIR=$DATASET" >> "$GITHUB_ENV"
+          fi
+
+      - name: Locate the previous artifact
+        if: ${{ inputs.resume_artifact != '' }}
+        id: locate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT: ${{ inputs.resume_artifact }}
+          RUN_ID_IN: ${{ inputs.resume_run_id }}
+        run: |
+          if [ -n "$RUN_ID_IN" ]; then
+            run_id="$RUN_ID_IN"
+          else
+            run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=${ARTIFACT}&per_page=1" --jq '.artifacts[0].workflow_run.id')
+          fi
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error::no artifact named '$ARTIFACT' found in $GITHUB_REPOSITORY"
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download the previous artifact
+        if: ${{ inputs.resume_artifact != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.resume_artifact }}
+          run-id: ${{ steps.locate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          path: incoming
+
+      - name: Verify the incoming artifact before trusting it
+        if: ${{ inputs.resume_artifact != '' }}
+        id: incoming
+        env:
+          PIN: ${{ inputs.expect_manifest_sha256 }}
+          SKIP_GATE: ${{ inputs.skip_gate }}
+        run: |
+          args=(--dir incoming --stage "$STAGE" --profile-config "configs/${PROFILE}.yaml" --mode "$RESUME_MODE" --gate-dir configs/stages)
+          if [ -n "$PIN" ]; then args+=(--expect-manifest-sha256 "$PIN"); fi
+          if [ "$SKIP_GATE" = "true" ]; then args+=(--skip-gate); fi
+          python -m tinymind.ci.stage_io check-incoming "${args[@]}"
+
+      - name: Train
+        id: train
+        env:
+          RUNTIME_SECONDS: ${{ steps.budget.outputs.seconds }}
+          MODE: ${{ steps.incoming.outputs.mode }}
+          INCOMING_CKPT: ${{ steps.incoming.outputs.checkpoint }}
+        run: |
+          args=(--config "$PROFILE" --dataset "$DATA_DIR" --output out --stage "$STAGE" --seed "$SEED"
+                --max-runtime "$RUNTIME_SECONDS" --safety-margin 300)
+          case "$MODE" in
+            resume)    args+=(--resume "$INCOMING_CKPT") ;;
+            init-from) args+=(--init-from "$INCOMING_CKPT") ;;
+          esac
+          python -m tinymind.cli train "${args[@]}"
+
+      - name: Read the result
+        id: result
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          s = json.load(open("out/training_summary.json"))
+          print(f"stage_complete={str(s['stage_complete']).lower()}")
+          print(f"final_step={s['final_step']}")
+          PY
+
+      - name: Held-out evaluation (only when the stage is complete)
+        if: ${{ steps.result.outputs.stage_complete == 'true' }}
+        run: |
+          if [ -f "$DATA_DIR/eval.jsonl" ]; then
+            python -m tinymind.cli eval --package out/export --eval "$DATA_DIR/eval.jsonl" \
+              --val "$DATA_DIR/val.jsonl" --out out/eval_results.json
+          else
+            echo "::warning::no eval.jsonl in $DATA_DIR; skipping the capability suite"
+          fi
+
+      - name: Bundle
+        id: bundle
+        run: |
+          args=(--run out --dest bundle --profile "$PROFILE" --stage "$STAGE" --probe runner_profile.json)
+          if [ -f out/eval_results.json ]; then args+=(--eval out/eval_results.json); fi
+          python -m tinymind.ci.stage_io bundle "${args[@]}"
+
+      - name: Verify the bundle we are about to upload
+        run: python -m tinymind.cli verify-checkpoint bundle/checkpoints && python -m tinymind.cli verify-package bundle/export
+
+      - name: Upload the stage bundle (checkpoints + inference package + summary)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bundle.outputs.artifact_name }}
+          path: bundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload the inference package alone (the mobile model)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bundle.outputs.artifact_name }}-model
+          path: bundle/export
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Job summary
+        run: python -m tinymind.ci.stage_io summary --bundle bundle
+
+  publish:
+    # Optional. Needs no credentials to be skipped or to fail harmlessly.
+    needs: train
+    if: ${{ inputs.publish && needs.train.outputs.stage_complete == 'true' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      ARTIFACT: ${{ needs.train.outputs.artifact_name }}
+      STAGE: ${{ inputs.stage }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.train.outputs.artifact_name }}-model
+          path: model
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tar -czf "${ARTIFACT}-model.tar.gz" -C model .
+          gh release create "model-${STAGE}-${GITHUB_RUN_ID}" "${ARTIFACT}-model.tar.gz" --repo "$GITHUB_REPOSITORY" \
+            --title "TinyMind ${STAGE} (${ARTIFACT})" --notes "Inference package from workflow run ${GITHUB_RUN_ID}." \
+            || echo "::warning::could not create the release (missing permission?); the workflow artifact is unaffected"
+      - name: Hugging Face (only when the HF_TOKEN secret is configured)
+        if: ${{ env.HF_TOKEN != '' }}
+        run: |
+          python -m pip install --quiet huggingface_hub
+          python -m tinymind.ci.publish_hf --folder model --name "$ARTIFACT" \
+            || echo "::warning::Hugging Face upload failed; the workflow artifact is unaffected"

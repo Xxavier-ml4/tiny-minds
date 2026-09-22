@@ -1,0 +1,30 @@
+{
+  "examples": 9766,
+  "tokens": 1332273,
+  "render_and_tokenize_seconds": 0.681,
+  "render_examples_per_sec": 14341,
+  "render_tokens_per_sec": 1956332,
+  "padded": {
+    "epoch_plan_seconds": 0.0325,
+    "micro_batches_per_epoch": 1220,
+    "micro_batch_ms": 0.023,
+    "batch_shape": [
+      8,
+      179
+    ],
+    "real_tokens": 1049,
+    "micro_batch_share_of_step": "0.006%"
+  },
+  "packed": {
+    "epoch_plan_seconds": 0.0334,
+    "micro_batches_per_epoch": 938,
+    "micro_batch_ms": 0.038,
+    "batch_shape": [
+      8,
+      251
+    ],
+    "real_tokens": 1487,
+    "micro_batch_share_of_step": "0.010%"
+  },
+  "tiny_mobile_step_ms_for_comparison": 395.5
+}

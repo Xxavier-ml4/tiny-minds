@@ -1,0 +1,2129 @@
+{
+  "package": "/home/claude/runs/chain/stage3/job2/out/export",
+  "eval_examples": 659,
+  "limit_per_category": 40,
+  "sizes": {
+    "fp32": {
+      "model_file_bytes": 4863136
+    },
+    "int8_embed_fp32": {
+      "model_file_bytes": 1360960,
+      "ratio_vs_fp32_file": 3.573
+    },
+    "int8_embed_int8": {
+      "model_file_bytes": 1262272,
+      "ratio_vs_fp32_file": 3.853
+    }
+  },
+  "hypothetical_int8_runtime": {
+    "note": "NOT implemented: arithmetic for a runtime that keeps weights in int8",
+    "embed_fp32": {
+      "parameters": 1214592,
+      "embedding_parameters": 33280,
+      "fp32_weight_bytes": 4858368,
+      "fp32_weight_MiB": 4.633,
+      "int8_weight_bytes": 1350144,
+      "int8_weight_MiB": 1.288,
+      "int8_quantizes_embeddings": false,
+      "kv_cache": {
+        "128": {
+          "bytes": 393216,
+          "MiB": 0.375
+        },
+        "256": {
+          "bytes": 786432,
+          "MiB": 0.75
+        }
+      },
+      "runtime_ram_estimate": {
+        "128": {
+          "fp32_MiB": 6.32,
+          "int8_weights_dequantized_on_the_fly_MiB": 2.98
+        },
+        "256": {
+          "fp32_MiB": 8.51,
+          "int8_weights_dequantized_on_the_fly_MiB": 5.17
+        }
+      },
+      "note": "kv_cache is exact; runtime_ram_estimate = fp32 weights + KV cache + scratch (an estimate; measure on device)"
+    },
+    "embed_int8": {
+      "parameters": 1214592,
+      "embedding_parameters": 33280,
+      "fp32_weight_bytes": 4858368,
+      "fp32_weight_MiB": 4.633,
+      "int8_weight_bytes": 1251344,
+      "int8_weight_MiB": 1.193,
+      "int8_quantizes_embeddings": true,
+      "kv_cache": {
+        "128": {
+          "bytes": 393216,
+          "MiB": 0.375
+        },
+        "256": {
+          "bytes": 786432,
+          "MiB": 0.75
+        }
+      },
+      "runtime_ram_estimate": {
+        "128": {
+          "fp32_MiB": 6.32,
+          "int8_weights_dequantized_on_the_fly_MiB": 2.88
+        },
+        "256": {
+          "fp32_MiB": 8.51,
+          "int8_weights_dequantized_on_the_fly_MiB": 5.07
+        }
+      },
+      "note": "kv_cache is exact; runtime_ram_estimate = fp32 weights + KV cache + scratch (an estimate; measure on device)"
+    }
+  },
+  "variants": {
+    "fp32": {
+      "suite_version": 1,
+      "model": {
+        "parameters": 1214592,
+        "config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+        "provenance": {
+          "checkpoint": "step-00000350",
+          "checkpoint_manifest_sha256": "c48ed3b6271c9ea5b2bf32a4d145b75c99242aeb3d744be429dd5fab7151b2a2",
+          "created_at": "2026-09-21T06:59:10+00:00",
+          "cumulative_steps": 2550,
+          "dataset_hash": "08c4fe42cf42af5dbfb1848f2c2574a7642a2b42c36b25a485e90697e9374e7f",
+          "final_validation": {
+            "step": 350,
+            "val_loss": 0.1770314685114351,
+            "val_ppl": 1.1936686555118552,
+            "val_tokens": 19047
+          },
+          "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+          "global_step": 350,
+          "stage": "stage3",
+          "stage_complete": true,
+          "training_config_hash": "990a76fd665ddc0b32c3560ffc9e9db647c8f7ff4d0d8e803bbb135811a52b93"
+        }
+      },
+      "loss": {
+        "validation": {
+          "loss": 0.17703146362652672,
+          "perplexity": 1.1936686496808933,
+          "loss_tokens": 19047,
+          "by_category": {
+            "copy": 0.08636409852906442,
+            "language": 0.2890100986923804,
+            "structured": 0.3472643656903003,
+            "tool_arithmetic": 0.10782196000218391,
+            "tool_lookup": 0.34017109870910645,
+            "tool_memory": 0.09325386213988046,
+            "tool_result": 0.1458865229350674,
+            "tool_timer": 0.06671068569024403
+          },
+          "dropped_too_long": 0
+        },
+        "eval": {
+          "loss": 0.4831828845360364,
+          "perplexity": 1.621226375134774,
+          "loss_tokens": 29601,
+          "by_category": {
+            "clarification": 1.0668599431566468,
+            "clarification_followup": 0.42357165976194827,
+            "context_retention": 1.1969906223693536,
+            "copy": 0.09313941273852447,
+            "factual_qa": 0.7373459205198823,
+            "instruction": 1.7870028723841127,
+            "language": 0.2882490947884573,
+            "no_tool": 0.859672381426837,
+            "refusal": 0.14457091885972756,
+            "structured": 0.9161334093879251,
+            "tool_arithmetic": 0.172773315539787,
+            "tool_lookup": 0.6644455687014642,
+            "tool_memory": 0.08506378008727332,
+            "tool_result": 0.5311982042207493,
+            "tool_timer": 0.0886327139586288,
+            "tool_weather": 0.6591110229492188
+          },
+          "dropped_too_long": 0
+        }
+      },
+      "capabilities": {
+        "clarification": {
+          "n": 18,
+          "accuracy": 0.0
+        },
+        "clarification_followup": {
+          "n": 40,
+          "accuracy": 0.025
+        },
+        "context_retention": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "copy": {
+          "n": 40,
+          "accuracy": 0.85
+        },
+        "factual_qa": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "instruction": {
+          "n": 40,
+          "accuracy": 0.425
+        },
+        "no_tool": {
+          "n": 9,
+          "accuracy": 0.0
+        },
+        "refusal": {
+          "n": 37,
+          "accuracy": 0.24324324324324326
+        },
+        "structured": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "tool_arithmetic": {
+          "n": 40,
+          "accuracy": 0.0,
+          "paraphrase_accuracy": 0.0,
+          "seen_phrasing_accuracy": 0.0
+        },
+        "tool_lookup": {
+          "n": 30,
+          "accuracy": 0.7666666666666667,
+          "paraphrase_accuracy": 0.6923076923076923,
+          "seen_phrasing_accuracy": 0.8235294117647058
+        },
+        "tool_memory": {
+          "n": 25,
+          "accuracy": 0.96
+        },
+        "tool_result": {
+          "n": 40,
+          "accuracy": 0.125
+        },
+        "tool_timer": {
+          "n": 40,
+          "accuracy": 0.075,
+          "paraphrase_accuracy": 0.0625,
+          "seen_phrasing_accuracy": 0.08333333333333333
+        },
+        "tool_weather": {
+          "n": 40,
+          "accuracy": 0.0,
+          "paraphrase_accuracy": 0.0,
+          "seen_phrasing_accuracy": 0.0
+        }
+      },
+      "tool_behavior": {
+        "requests_needing_a_tool": 215,
+        "correct_tool_rate": 0.8372093023255814,
+        "argument_accuracy": 0.025,
+        "wrong_tool_rate": 0.08372093023255814,
+        "no_call_rate": 0.06511627906976744,
+        "malformed_call_rate": 0.013953488372093023,
+        "requests_needing_no_tool": 304,
+        "false_positive_call_rate": 0.3157894736842105,
+        "clarification_on_missing_argument_accuracy": 0.0,
+        "clarification_followup_call_accuracy": 0.025,
+        "tool_result_incorporation_accuracy": 0.125,
+        "refusal_accuracy": 0.24324324324324326
+      },
+      "generation": {
+        "graded_examples": 519,
+        "skipped_prompt_too_long": 0,
+        "max_new_tokens": 96,
+        "mean_response_tokens": 37.80346820809248,
+        "mean_response_chars": 36.80346820809248,
+        "unterminated_rate": 0.0,
+        "mean_char6gram_repetition": 0.005888738702832548,
+        "looping_rate_repetition_over_0.5": 0.0019267822736030828
+      },
+      "timing": {
+        "generated_tokens": 19620,
+        "generation_seconds": 26.379,
+        "tokens_per_second_python_runtime": 743.77,
+        "suite_seconds": 35.75
+      },
+      "failures_sample": [
+        {
+          "id": "eval-copy-0003",
+          "category": "copy",
+          "text": "YBUGXODG"
+        },
+        {
+          "id": "eval-copy-0004",
+          "category": "copy",
+          "text": "WQZBTEFT"
+        },
+        {
+          "id": "eval-copy-0019",
+          "category": "copy",
+          "text": "znpjqux"
+        },
+        {
+          "id": "eval-copy-0021",
+          "category": "copy",
+          "text": "CUBMDNMY"
+        },
+        {
+          "id": "eval-copy-0030",
+          "category": "copy",
+          "text": "FYo"
+        },
+        {
+          "id": "eval-copy-0036",
+          "category": "copy",
+          "text": "rsemnpet"
+        },
+        {
+          "id": "eval-arith_tool-0000",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"35+51\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0001",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"5*11\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0002",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"41+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0003",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"51-51\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0004",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"87-28\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0005",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"59+96\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0006",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"36+46\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0007",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"77+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0008",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"64-16\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0009",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"60+80\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0010",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11*12\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0011",
+          "category": "tool_arithmetic",
+          "text": "[\"stre\",\"moon\",\"rain\",\"sand\"]"
+        },
+        {
+          "id": "eval-arith_tool-0012",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"61+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0013",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"94+44\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0014",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"37+74\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0015",
+          "category": "tool_arithmetic",
+          "text": "Goood _telcow Iunuingune\"}"
+        },
+        {
+          "id": "eval-arith_tool-0016",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"71-16\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0017",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"88-58\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0018",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11+31\"}}"
+        }
+      ],
+      "python_weights_in_memory_bytes": 4858368,
+      "wall_seconds": 35.7
+    },
+    "int8_embed_fp32": {
+      "suite_version": 1,
+      "model": {
+        "parameters": 1214592,
+        "config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+        "provenance": {
+          "checkpoint": "step-00000350",
+          "checkpoint_manifest_sha256": "c48ed3b6271c9ea5b2bf32a4d145b75c99242aeb3d744be429dd5fab7151b2a2",
+          "created_at": "2026-09-21T06:59:10+00:00",
+          "cumulative_steps": 2550,
+          "dataset_hash": "08c4fe42cf42af5dbfb1848f2c2574a7642a2b42c36b25a485e90697e9374e7f",
+          "final_validation": {
+            "step": 350,
+            "val_loss": 0.1770314685114351,
+            "val_ppl": 1.1936686555118552,
+            "val_tokens": 19047
+          },
+          "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+          "global_step": 350,
+          "stage": "stage3",
+          "stage_complete": true,
+          "training_config_hash": "990a76fd665ddc0b32c3560ffc9e9db647c8f7ff4d0d8e803bbb135811a52b93"
+        }
+      },
+      "loss": {
+        "validation": {
+          "loss": 0.1770856912607858,
+          "perplexity": 1.1937333812629591,
+          "loss_tokens": 19047,
+          "by_category": {
+            "copy": 0.08554895192841211,
+            "language": 0.2891004361401406,
+            "structured": 0.3472533229843201,
+            "tool_arithmetic": 0.10796976312994958,
+            "tool_lookup": 0.34033496039254324,
+            "tool_memory": 0.09336941388961419,
+            "tool_result": 0.14590225678060054,
+            "tool_timer": 0.06628610690434773
+          },
+          "dropped_too_long": 0
+        },
+        "eval": {
+          "loss": 0.482893157374202,
+          "perplexity": 1.6207567298561973,
+          "loss_tokens": 29601,
+          "by_category": {
+            "clarification": 1.0707262253620216,
+            "clarification_followup": 0.42402596980396245,
+            "context_retention": 1.1918832842833884,
+            "copy": 0.09399384192187524,
+            "factual_qa": 0.7356091017133735,
+            "instruction": 1.7879743741906207,
+            "language": 0.2882032109650088,
+            "no_tool": 0.8573529217694257,
+            "refusal": 0.14377228491753827,
+            "structured": 0.916885830374325,
+            "tool_arithmetic": 0.17292230392761332,
+            "tool_lookup": 0.6648336627526198,
+            "tool_memory": 0.08499062414321377,
+            "tool_result": 0.5312920577882781,
+            "tool_timer": 0.08903047723824865,
+            "tool_weather": 0.6583506218337654
+          },
+          "dropped_too_long": 0
+        }
+      },
+      "capabilities": {
+        "clarification": {
+          "n": 18,
+          "accuracy": 0.0
+        },
+        "clarification_followup": {
+          "n": 40,
+          "accuracy": 0.025
+        },
+        "context_retention": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "copy": {
+          "n": 40,
+          "accuracy": 0.825
+        },
+        "factual_qa": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "instruction": {
+          "n": 40,
+          "accuracy": 0.4
+        },
+        "no_tool": {
+          "n": 9,
+          "accuracy": 0.0
+        },
+        "refusal": {
+          "n": 37,
+          "accuracy": 0.24324324324324326
+        },
+        "structured": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "tool_arithmetic": {
+          "n": 40,
+          "accuracy": 0.0,
+          "paraphrase_accuracy": 0.0,
+          "seen_phrasing_accuracy": 0.0
+        },
+        "tool_lookup": {
+          "n": 30,
+          "accuracy": 0.7666666666666667,
+          "paraphrase_accuracy": 0.6923076923076923,
+          "seen_phrasing_accuracy": 0.8235294117647058
+        },
+        "tool_memory": {
+          "n": 25,
+          "accuracy": 0.96
+        },
+        "tool_result": {
+          "n": 40,
+          "accuracy": 0.125
+        },
+        "tool_timer": {
+          "n": 40,
+          "accuracy": 0.075,
+          "paraphrase_accuracy": 0.0625,
+          "seen_phrasing_accuracy": 0.08333333333333333
+        },
+        "tool_weather": {
+          "n": 40,
+          "accuracy": 0.0,
+          "paraphrase_accuracy": 0.0,
+          "seen_phrasing_accuracy": 0.0
+        }
+      },
+      "tool_behavior": {
+        "requests_needing_a_tool": 215,
+        "correct_tool_rate": 0.8325581395348837,
+        "argument_accuracy": 0.025,
+        "wrong_tool_rate": 0.08372093023255814,
+        "no_call_rate": 0.06511627906976744,
+        "malformed_call_rate": 0.018604651162790697,
+        "requests_needing_no_tool": 304,
+        "false_positive_call_rate": 0.3190789473684211,
+        "clarification_on_missing_argument_accuracy": 0.0,
+        "clarification_followup_call_accuracy": 0.025,
+        "tool_result_incorporation_accuracy": 0.125,
+        "refusal_accuracy": 0.24324324324324326
+      },
+      "generation": {
+        "graded_examples": 519,
+        "skipped_prompt_too_long": 0,
+        "max_new_tokens": 96,
+        "mean_response_tokens": 37.82658959537572,
+        "mean_response_chars": 36.82658959537572,
+        "unterminated_rate": 0.0,
+        "mean_char6gram_repetition": 0.005839334029150418,
+        "looping_rate_repetition_over_0.5": 0.0019267822736030828
+      },
+      "timing": {
+        "generated_tokens": 19632,
+        "generation_seconds": 26.593,
+        "tokens_per_second_python_runtime": 738.24,
+        "suite_seconds": 35.52
+      },
+      "failures_sample": [
+        {
+          "id": "eval-copy-0003",
+          "category": "copy",
+          "text": "YBUGXODG"
+        },
+        {
+          "id": "eval-copy-0004",
+          "category": "copy",
+          "text": "WQZBTEFT"
+        },
+        {
+          "id": "eval-copy-0019",
+          "category": "copy",
+          "text": "znpjqux"
+        },
+        {
+          "id": "eval-copy-0021",
+          "category": "copy",
+          "text": "CUUMDNMY"
+        },
+        {
+          "id": "eval-copy-0030",
+          "category": "copy",
+          "text": "FYo"
+        },
+        {
+          "id": "eval-copy-0036",
+          "category": "copy",
+          "text": "rsemnpet"
+        },
+        {
+          "id": "eval-copy-0038",
+          "category": "copy",
+          "text": "urgsvum"
+        },
+        {
+          "id": "eval-arith_tool-0000",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"35+51\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0001",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"5*11\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0002",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"41+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0003",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"51-51\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0004",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"87-28\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0005",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"59+96\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0006",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"36+46\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0007",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"77+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0008",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"64-16\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0009",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"60+80\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0010",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11*12\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0011",
+          "category": "tool_arithmetic",
+          "text": "[\"stre\",\"moon\",\"rain\",\"star\"]"
+        },
+        {
+          "id": "eval-arith_tool-0012",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"61+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0013",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"94+44\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0014",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"32+74\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0015",
+          "category": "tool_arithmetic",
+          "text": "Goood _t can'w."
+        },
+        {
+          "id": "eval-arith_tool-0016",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"7orangumen\"2\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0017",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"88-58\"}}"
+        }
+      ],
+      "python_weights_in_memory_bytes": 4858368,
+      "wall_seconds": 35.5
+    },
+    "int8_embed_int8": {
+      "suite_version": 1,
+      "model": {
+        "parameters": 1214592,
+        "config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+        "provenance": {
+          "checkpoint": "step-00000350",
+          "checkpoint_manifest_sha256": "c48ed3b6271c9ea5b2bf32a4d145b75c99242aeb3d744be429dd5fab7151b2a2",
+          "created_at": "2026-09-21T06:59:10+00:00",
+          "cumulative_steps": 2550,
+          "dataset_hash": "08c4fe42cf42af5dbfb1848f2c2574a7642a2b42c36b25a485e90697e9374e7f",
+          "final_validation": {
+            "step": 350,
+            "val_loss": 0.1770314685114351,
+            "val_ppl": 1.1936686555118552,
+            "val_tokens": 19047
+          },
+          "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+          "global_step": 350,
+          "stage": "stage3",
+          "stage_complete": true,
+          "training_config_hash": "990a76fd665ddc0b32c3560ffc9e9db647c8f7ff4d0d8e803bbb135811a52b93"
+        }
+      },
+      "loss": {
+        "validation": {
+          "loss": 0.17710886187720387,
+          "perplexity": 1.1937610411216886,
+          "loss_tokens": 19047,
+          "by_category": {
+            "copy": 0.08680122555997752,
+            "language": 0.2890322155375021,
+            "structured": 0.3476703046316124,
+            "tool_arithmetic": 0.10792648121714592,
+            "tool_lookup": 0.3407449722290039,
+            "tool_memory": 0.09333196623604634,
+            "tool_result": 0.14588904191116406,
+            "tool_timer": 0.06608123083909352
+          },
+          "dropped_too_long": 0
+        },
+        "eval": {
+          "loss": 0.4829741486230133,
+          "perplexity": 1.6208880022836547,
+          "loss_tokens": 29601,
+          "by_category": {
+            "clarification": 1.0697109741572093,
+            "clarification_followup": 0.4236419041504078,
+            "context_retention": 1.191481075254372,
+            "copy": 0.09268462884562097,
+            "factual_qa": 0.7365694838963198,
+            "instruction": 1.7878620976987092,
+            "language": 0.2882073759696853,
+            "no_tool": 0.8594475204880173,
+            "refusal": 0.1430834788290639,
+            "structured": 0.9186621385462144,
+            "tool_arithmetic": 0.17282991043346052,
+            "tool_lookup": 0.665698552845481,
+            "tool_memory": 0.08500863750866171,
+            "tool_result": 0.5315751383623739,
+            "tool_timer": 0.08913795041366362,
+            "tool_weather": 0.6577706871787744
+          },
+          "dropped_too_long": 0
+        }
+      },
+      "capabilities": {
+        "clarification": {
+          "n": 18,
+          "accuracy": 0.0
+        },
+        "clarification_followup": {
+          "n": 40,
+          "accuracy": 0.025
+        },
+        "context_retention": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "copy": {
+          "n": 40,
+          "accuracy": 0.825
+        },
+        "factual_qa": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "instruction": {
+          "n": 40,
+          "accuracy": 0.4
+        },
+        "no_tool": {
+          "n": 9,
+          "accuracy": 0.0
+        },
+        "refusal": {
+          "n": 37,
+          "accuracy": 0.2702702702702703
+        },
+        "structured": {
+          "n": 40,
+          "accuracy": 0.0
+        },
+        "tool_arithmetic": {
+          "n": 40,
+          "accuracy": 0.0,
+          "paraphrase_accuracy": 0.0,
+          "seen_phrasing_accuracy": 0.0
+        },
+        "tool_lookup": {
+          "n": 30,
+          "accuracy": 0.7666666666666667,
+          "paraphrase_accuracy": 0.6923076923076923,
+          "seen_phrasing_accuracy": 0.8235294117647058
+        },
+        "tool_memory": {
+          "n": 25,
+          "accuracy": 0.96
+        },
+        "tool_result": {
+          "n": 40,
+          "accuracy": 0.125
+        },
+        "tool_timer": {
+          "n": 40,
+          "accuracy": 0.075,
+          "paraphrase_accuracy": 0.0625,
+          "seen_phrasing_accuracy": 0.08333333333333333
+        },
+        "tool_weather": {
+          "n": 40,
+          "accuracy": 0.0,
+          "paraphrase_accuracy": 0.0,
+          "seen_phrasing_accuracy": 0.0
+        }
+      },
+      "tool_behavior": {
+        "requests_needing_a_tool": 215,
+        "correct_tool_rate": 0.8325581395348837,
+        "argument_accuracy": 0.025,
+        "wrong_tool_rate": 0.08837209302325581,
+        "no_call_rate": 0.06511627906976744,
+        "malformed_call_rate": 0.013953488372093023,
+        "requests_needing_no_tool": 304,
+        "false_positive_call_rate": 0.3125,
+        "clarification_on_missing_argument_accuracy": 0.0,
+        "clarification_followup_call_accuracy": 0.025,
+        "tool_result_incorporation_accuracy": 0.125,
+        "refusal_accuracy": 0.2702702702702703
+      },
+      "generation": {
+        "graded_examples": 519,
+        "skipped_prompt_too_long": 0,
+        "max_new_tokens": 96,
+        "mean_response_tokens": 37.85741811175337,
+        "mean_response_chars": 36.85741811175337,
+        "unterminated_rate": 0.0,
+        "mean_char6gram_repetition": 0.006002040087810234,
+        "looping_rate_repetition_over_0.5": 0.0019267822736030828
+      },
+      "timing": {
+        "generated_tokens": 19648,
+        "generation_seconds": 26.646,
+        "tokens_per_second_python_runtime": 737.38,
+        "suite_seconds": 35.54
+      },
+      "failures_sample": [
+        {
+          "id": "eval-copy-0003",
+          "category": "copy",
+          "text": "YBUGXODG"
+        },
+        {
+          "id": "eval-copy-0004",
+          "category": "copy",
+          "text": "WQZBTEFT"
+        },
+        {
+          "id": "eval-copy-0019",
+          "category": "copy",
+          "text": "znpjqux"
+        },
+        {
+          "id": "eval-copy-0021",
+          "category": "copy",
+          "text": "CUUMDNMY"
+        },
+        {
+          "id": "eval-copy-0030",
+          "category": "copy",
+          "text": "FYo"
+        },
+        {
+          "id": "eval-copy-0036",
+          "category": "copy",
+          "text": "rsemnpet"
+        },
+        {
+          "id": "eval-copy-0038",
+          "category": "copy",
+          "text": "urgsvum"
+        },
+        {
+          "id": "eval-arith_tool-0000",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"35+51\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0001",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"5*11\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0002",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"41+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0003",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"51-51\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0004",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"87-28\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0005",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"59+96\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0006",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"36+46\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0007",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"77+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0008",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"64-16\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0009",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"60+80\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0010",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"11*12\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0011",
+          "category": "tool_arithmetic",
+          "text": "[\"stre\",\"moon\",\"rain\",\"star\"]"
+        },
+        {
+          "id": "eval-arith_tool-0012",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"61+8\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0013",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"94+44\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0014",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"32+74\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0015",
+          "category": "tool_arithmetic",
+          "text": "Goood _telcow Iunuingune\"}"
+        },
+        {
+          "id": "eval-arith_tool-0016",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"71-16\"}}"
+        },
+        {
+          "id": "eval-arith_tool-0017",
+          "category": "tool_arithmetic",
+          "text": "{\"name\":\"calculator\",\"arguments\":{\"expr\":\"88-58\"}}"
+        }
+      ],
+      "python_weights_in_memory_bytes": 4858368,
+      "wall_seconds": 35.5
+    }
+  },
+  "deltas_vs_fp32": {
+    "int8_embed_fp32": [
+      {
+        "metric": "loss.validation.loss",
+        "fp32": 0.17703146362652672,
+        "int8_embed_fp32": 0.1770856912607858,
+        "delta": 5.422763425907973e-05
+      },
+      {
+        "metric": "loss.validation.perplexity",
+        "fp32": 1.1936686496808933,
+        "int8_embed_fp32": 1.1937333812629591,
+        "delta": 6.473158206588003e-05
+      },
+      {
+        "metric": "loss.validation.loss_tokens",
+        "fp32": 19047.0,
+        "int8_embed_fp32": 19047.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "loss.validation.by_category.copy",
+        "fp32": 0.08636409852906442,
+        "int8_embed_fp32": 0.08554895192841211,
+        "delta": -0.0008151466006523084
+      },
+      {
+        "metric": "loss.validation.by_category.language",
+        "fp32": 0.2890100986923804,
+        "int8_embed_fp32": 0.2891004361401406,
+        "delta": 9.033744776015817e-05
+      },
+      {
+        "metric": "loss.validation.by_category.structured",
+        "fp32": 0.3472643656903003,
+        "int8_embed_fp32": 0.3472533229843201,
+        "delta": -1.1042705980179868e-05
+      },
+      {
+        "metric": "loss.validation.by_category.tool_arithmetic",
+        "fp32": 0.10782196000218391,
+        "int8_embed_fp32": 0.10796976312994958,
+        "delta": 0.00014780312776566107
+      },
+      {
+        "metric": "loss.validation.by_category.tool_lookup",
+        "fp32": 0.34017109870910645,
+        "int8_embed_fp32": 0.34033496039254324,
+        "delta": 0.00016386168343679453
+      },
+      {
+        "metric": "loss.validation.by_category.tool_memory",
+        "fp32": 0.09325386213988046,
+        "int8_embed_fp32": 0.09336941388961419,
+        "delta": 0.00011555174973372495
+      },
+      {
+        "metric": "loss.validation.by_category.tool_result",
+        "fp32": 0.1458865229350674,
+        "int8_embed_fp32": 0.14590225678060054,
+        "delta": 1.5733845533133506e-05
+      },
+      {
+        "metric": "loss.validation.by_category.tool_timer",
+        "fp32": 0.06671068569024403,
+        "int8_embed_fp32": 0.06628610690434773,
+        "delta": -0.00042457878589630127
+      },
+      {
+        "metric": "loss.validation.dropped_too_long",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "loss.eval.loss",
+        "fp32": 0.4831828845360364,
+        "int8_embed_fp32": 0.482893157374202,
+        "delta": -0.0002897271618343966
+      },
+      {
+        "metric": "loss.eval.perplexity",
+        "fp32": 1.621226375134774,
+        "int8_embed_fp32": 1.6207567298561973,
+        "delta": -0.00046964527857662475
+      },
+      {
+        "metric": "loss.eval.loss_tokens",
+        "fp32": 29601.0,
+        "int8_embed_fp32": 29601.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "loss.eval.by_category.clarification",
+        "fp32": 1.0668599431566468,
+        "int8_embed_fp32": 1.0707262253620216,
+        "delta": 0.0038662822053747714
+      },
+      {
+        "metric": "loss.eval.by_category.clarification_followup",
+        "fp32": 0.42357165976194827,
+        "int8_embed_fp32": 0.42402596980396245,
+        "delta": 0.00045431004201418324
+      },
+      {
+        "metric": "loss.eval.by_category.context_retention",
+        "fp32": 1.1969906223693536,
+        "int8_embed_fp32": 1.1918832842833884,
+        "delta": -0.005107338085965196
+      },
+      {
+        "metric": "loss.eval.by_category.copy",
+        "fp32": 0.09313941273852447,
+        "int8_embed_fp32": 0.09399384192187524,
+        "delta": 0.0008544291833507689
+      },
+      {
+        "metric": "loss.eval.by_category.factual_qa",
+        "fp32": 0.7373459205198823,
+        "int8_embed_fp32": 0.7356091017133735,
+        "delta": -0.0017368188065088885
+      },
+      {
+        "metric": "loss.eval.by_category.instruction",
+        "fp32": 1.7870028723841127,
+        "int8_embed_fp32": 1.7879743741906207,
+        "delta": 0.0009715018065079573
+      },
+      {
+        "metric": "loss.eval.by_category.language",
+        "fp32": 0.2882490947884573,
+        "int8_embed_fp32": 0.2882032109650088,
+        "delta": -4.5883823448500394e-05
+      },
+      {
+        "metric": "loss.eval.by_category.no_tool",
+        "fp32": 0.859672381426837,
+        "int8_embed_fp32": 0.8573529217694257,
+        "delta": -0.0023194596574113158
+      },
+      {
+        "metric": "loss.eval.by_category.refusal",
+        "fp32": 0.14457091885972756,
+        "int8_embed_fp32": 0.14377228491753827,
+        "delta": -0.0007986339421892918
+      },
+      {
+        "metric": "loss.eval.by_category.structured",
+        "fp32": 0.9161334093879251,
+        "int8_embed_fp32": 0.916885830374325,
+        "delta": 0.0007524209863999376
+      },
+      {
+        "metric": "loss.eval.by_category.tool_arithmetic",
+        "fp32": 0.172773315539787,
+        "int8_embed_fp32": 0.17292230392761332,
+        "delta": 0.0001489883878263154
+      },
+      {
+        "metric": "loss.eval.by_category.tool_lookup",
+        "fp32": 0.6644455687014642,
+        "int8_embed_fp32": 0.6648336627526198,
+        "delta": 0.00038809405115558526
+      },
+      {
+        "metric": "loss.eval.by_category.tool_memory",
+        "fp32": 0.08506378008727332,
+        "int8_embed_fp32": 0.08499062414321377,
+        "delta": -7.315594405954418e-05
+      },
+      {
+        "metric": "loss.eval.by_category.tool_result",
+        "fp32": 0.5311982042207493,
+        "int8_embed_fp32": 0.5312920577882781,
+        "delta": 9.385356752888985e-05
+      },
+      {
+        "metric": "loss.eval.by_category.tool_timer",
+        "fp32": 0.0886327139586288,
+        "int8_embed_fp32": 0.08903047723824865,
+        "delta": 0.0003977632796198505
+      },
+      {
+        "metric": "loss.eval.by_category.tool_weather",
+        "fp32": 0.6591110229492188,
+        "int8_embed_fp32": 0.6583506218337654,
+        "delta": -0.0007604011154533907
+      },
+      {
+        "metric": "loss.eval.dropped_too_long",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification.n",
+        "fp32": 18.0,
+        "int8_embed_fp32": 18.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification.accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification_followup.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification_followup.accuracy",
+        "fp32": 0.025,
+        "int8_embed_fp32": 0.025,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.context_retention.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.context_retention.accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.copy.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.copy.accuracy",
+        "fp32": 0.85,
+        "int8_embed_fp32": 0.825,
+        "delta": -0.025000000000000022
+      },
+      {
+        "metric": "capabilities.factual_qa.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.factual_qa.accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.instruction.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.instruction.accuracy",
+        "fp32": 0.425,
+        "int8_embed_fp32": 0.4,
+        "delta": -0.024999999999999967
+      },
+      {
+        "metric": "capabilities.no_tool.n",
+        "fp32": 9.0,
+        "int8_embed_fp32": 9.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.no_tool.accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.refusal.n",
+        "fp32": 37.0,
+        "int8_embed_fp32": 37.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.refusal.accuracy",
+        "fp32": 0.24324324324324326,
+        "int8_embed_fp32": 0.24324324324324326,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.structured.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.structured.accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.paraphrase_accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.seen_phrasing_accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.n",
+        "fp32": 30.0,
+        "int8_embed_fp32": 30.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.accuracy",
+        "fp32": 0.7666666666666667,
+        "int8_embed_fp32": 0.7666666666666667,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.paraphrase_accuracy",
+        "fp32": 0.6923076923076923,
+        "int8_embed_fp32": 0.6923076923076923,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.seen_phrasing_accuracy",
+        "fp32": 0.8235294117647058,
+        "int8_embed_fp32": 0.8235294117647058,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_memory.n",
+        "fp32": 25.0,
+        "int8_embed_fp32": 25.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_memory.accuracy",
+        "fp32": 0.96,
+        "int8_embed_fp32": 0.96,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_result.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_result.accuracy",
+        "fp32": 0.125,
+        "int8_embed_fp32": 0.125,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.accuracy",
+        "fp32": 0.075,
+        "int8_embed_fp32": 0.075,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.paraphrase_accuracy",
+        "fp32": 0.0625,
+        "int8_embed_fp32": 0.0625,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.seen_phrasing_accuracy",
+        "fp32": 0.08333333333333333,
+        "int8_embed_fp32": 0.08333333333333333,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.n",
+        "fp32": 40.0,
+        "int8_embed_fp32": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.paraphrase_accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.seen_phrasing_accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.requests_needing_a_tool",
+        "fp32": 215.0,
+        "int8_embed_fp32": 215.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.correct_tool_rate",
+        "fp32": 0.8372093023255814,
+        "int8_embed_fp32": 0.8325581395348837,
+        "delta": -0.0046511627906977715
+      },
+      {
+        "metric": "tool_behavior.argument_accuracy",
+        "fp32": 0.025,
+        "int8_embed_fp32": 0.025,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.wrong_tool_rate",
+        "fp32": 0.08372093023255814,
+        "int8_embed_fp32": 0.08372093023255814,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.no_call_rate",
+        "fp32": 0.06511627906976744,
+        "int8_embed_fp32": 0.06511627906976744,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.malformed_call_rate",
+        "fp32": 0.013953488372093023,
+        "int8_embed_fp32": 0.018604651162790697,
+        "delta": 0.004651162790697674
+      },
+      {
+        "metric": "tool_behavior.requests_needing_no_tool",
+        "fp32": 304.0,
+        "int8_embed_fp32": 304.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.false_positive_call_rate",
+        "fp32": 0.3157894736842105,
+        "int8_embed_fp32": 0.3190789473684211,
+        "delta": 0.0032894736842105643
+      },
+      {
+        "metric": "tool_behavior.clarification_on_missing_argument_accuracy",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.clarification_followup_call_accuracy",
+        "fp32": 0.025,
+        "int8_embed_fp32": 0.025,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.tool_result_incorporation_accuracy",
+        "fp32": 0.125,
+        "int8_embed_fp32": 0.125,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.refusal_accuracy",
+        "fp32": 0.24324324324324326,
+        "int8_embed_fp32": 0.24324324324324326,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.graded_examples",
+        "fp32": 519.0,
+        "int8_embed_fp32": 519.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.skipped_prompt_too_long",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.max_new_tokens",
+        "fp32": 96.0,
+        "int8_embed_fp32": 96.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.mean_response_tokens",
+        "fp32": 37.80346820809248,
+        "int8_embed_fp32": 37.82658959537572,
+        "delta": 0.02312138728323987
+      },
+      {
+        "metric": "generation.mean_response_chars",
+        "fp32": 36.80346820809248,
+        "int8_embed_fp32": 36.82658959537572,
+        "delta": 0.02312138728323987
+      },
+      {
+        "metric": "generation.unterminated_rate",
+        "fp32": 0.0,
+        "int8_embed_fp32": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.mean_char6gram_repetition",
+        "fp32": 0.005888738702832548,
+        "int8_embed_fp32": 0.005839334029150418,
+        "delta": -4.9404673682130334e-05
+      },
+      {
+        "metric": "generation.looping_rate_repetition_over_0.5",
+        "fp32": 0.0019267822736030828,
+        "int8_embed_fp32": 0.0019267822736030828,
+        "delta": 0.0
+      },
+      {
+        "metric": "timing.generated_tokens",
+        "fp32": 19620.0,
+        "int8_embed_fp32": 19632.0,
+        "delta": 12.0
+      },
+      {
+        "metric": "timing.generation_seconds",
+        "fp32": 26.379,
+        "int8_embed_fp32": 26.593,
+        "delta": 0.21399999999999864
+      },
+      {
+        "metric": "timing.tokens_per_second_python_runtime",
+        "fp32": 743.77,
+        "int8_embed_fp32": 738.24,
+        "delta": -5.529999999999973
+      },
+      {
+        "metric": "timing.suite_seconds",
+        "fp32": 35.75,
+        "int8_embed_fp32": 35.52,
+        "delta": -0.22999999999999687
+      },
+      {
+        "metric": "python_weights_in_memory_bytes",
+        "fp32": 4858368.0,
+        "int8_embed_fp32": 4858368.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "wall_seconds",
+        "fp32": 35.7,
+        "int8_embed_fp32": 35.5,
+        "delta": -0.20000000000000284
+      }
+    ],
+    "int8_embed_int8": [
+      {
+        "metric": "loss.validation.loss",
+        "fp32": 0.17703146362652672,
+        "int8_embed_int8": 0.17710886187720387,
+        "delta": 7.7398250677152e-05
+      },
+      {
+        "metric": "loss.validation.perplexity",
+        "fp32": 1.1936686496808933,
+        "int8_embed_int8": 1.1937610411216886,
+        "delta": 9.239144079531414e-05
+      },
+      {
+        "metric": "loss.validation.loss_tokens",
+        "fp32": 19047.0,
+        "int8_embed_int8": 19047.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "loss.validation.by_category.copy",
+        "fp32": 0.08636409852906442,
+        "int8_embed_int8": 0.08680122555997752,
+        "delta": 0.0004371270309131009
+      },
+      {
+        "metric": "loss.validation.by_category.language",
+        "fp32": 0.2890100986923804,
+        "int8_embed_int8": 0.2890322155375021,
+        "delta": 2.2116845121655793e-05
+      },
+      {
+        "metric": "loss.validation.by_category.structured",
+        "fp32": 0.3472643656903003,
+        "int8_embed_int8": 0.3476703046316124,
+        "delta": 0.00040593894131213393
+      },
+      {
+        "metric": "loss.validation.by_category.tool_arithmetic",
+        "fp32": 0.10782196000218391,
+        "int8_embed_int8": 0.10792648121714592,
+        "delta": 0.00010452121496200284
+      },
+      {
+        "metric": "loss.validation.by_category.tool_lookup",
+        "fp32": 0.34017109870910645,
+        "int8_embed_int8": 0.3407449722290039,
+        "delta": 0.0005738735198974609
+      },
+      {
+        "metric": "loss.validation.by_category.tool_memory",
+        "fp32": 0.09325386213988046,
+        "int8_embed_int8": 0.09333196623604634,
+        "delta": 7.810409616587632e-05
+      },
+      {
+        "metric": "loss.validation.by_category.tool_result",
+        "fp32": 0.1458865229350674,
+        "int8_embed_int8": 0.14588904191116406,
+        "delta": 2.518976096654857e-06
+      },
+      {
+        "metric": "loss.validation.by_category.tool_timer",
+        "fp32": 0.06671068569024403,
+        "int8_embed_int8": 0.06608123083909352,
+        "delta": -0.0006294548511505127
+      },
+      {
+        "metric": "loss.validation.dropped_too_long",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "loss.eval.loss",
+        "fp32": 0.4831828845360364,
+        "int8_embed_int8": 0.4829741486230133,
+        "delta": -0.000208735913023117
+      },
+      {
+        "metric": "loss.eval.perplexity",
+        "fp32": 1.621226375134774,
+        "int8_embed_int8": 1.6208880022836547,
+        "delta": -0.00033837285111926185
+      },
+      {
+        "metric": "loss.eval.loss_tokens",
+        "fp32": 29601.0,
+        "int8_embed_int8": 29601.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "loss.eval.by_category.clarification",
+        "fp32": 1.0668599431566468,
+        "int8_embed_int8": 1.0697109741572093,
+        "delta": 0.0028510310005624984
+      },
+      {
+        "metric": "loss.eval.by_category.clarification_followup",
+        "fp32": 0.42357165976194827,
+        "int8_embed_int8": 0.4236419041504078,
+        "delta": 7.02443884595394e-05
+      },
+      {
+        "metric": "loss.eval.by_category.context_retention",
+        "fp32": 1.1969906223693536,
+        "int8_embed_int8": 1.191481075254372,
+        "delta": -0.005509547114981528
+      },
+      {
+        "metric": "loss.eval.by_category.copy",
+        "fp32": 0.09313941273852447,
+        "int8_embed_int8": 0.09268462884562097,
+        "delta": -0.0004547838929035014
+      },
+      {
+        "metric": "loss.eval.by_category.factual_qa",
+        "fp32": 0.7373459205198823,
+        "int8_embed_int8": 0.7365694838963198,
+        "delta": -0.0007764366235625264
+      },
+      {
+        "metric": "loss.eval.by_category.instruction",
+        "fp32": 1.7870028723841127,
+        "int8_embed_int8": 1.7878620976987092,
+        "delta": 0.000859225314596479
+      },
+      {
+        "metric": "loss.eval.by_category.language",
+        "fp32": 0.2882490947884573,
+        "int8_embed_int8": 0.2882073759696853,
+        "delta": -4.171881877196304e-05
+      },
+      {
+        "metric": "loss.eval.by_category.no_tool",
+        "fp32": 0.859672381426837,
+        "int8_embed_int8": 0.8594475204880173,
+        "delta": -0.00022486093881968205
+      },
+      {
+        "metric": "loss.eval.by_category.refusal",
+        "fp32": 0.14457091885972756,
+        "int8_embed_int8": 0.1430834788290639,
+        "delta": -0.0014874400306636726
+      },
+      {
+        "metric": "loss.eval.by_category.structured",
+        "fp32": 0.9161334093879251,
+        "int8_embed_int8": 0.9186621385462144,
+        "delta": 0.002528729158289278
+      },
+      {
+        "metric": "loss.eval.by_category.tool_arithmetic",
+        "fp32": 0.172773315539787,
+        "int8_embed_int8": 0.17282991043346052,
+        "delta": 5.659489367351722e-05
+      },
+      {
+        "metric": "loss.eval.by_category.tool_lookup",
+        "fp32": 0.6644455687014642,
+        "int8_embed_int8": 0.665698552845481,
+        "delta": 0.0012529841440167555
+      },
+      {
+        "metric": "loss.eval.by_category.tool_memory",
+        "fp32": 0.08506378008727332,
+        "int8_embed_int8": 0.08500863750866171,
+        "delta": -5.514257861161109e-05
+      },
+      {
+        "metric": "loss.eval.by_category.tool_result",
+        "fp32": 0.5311982042207493,
+        "int8_embed_int8": 0.5315751383623739,
+        "delta": 0.0003769341416246519
+      },
+      {
+        "metric": "loss.eval.by_category.tool_timer",
+        "fp32": 0.0886327139586288,
+        "int8_embed_int8": 0.08913795041366362,
+        "delta": 0.0005052364550348215
+      },
+      {
+        "metric": "loss.eval.by_category.tool_weather",
+        "fp32": 0.6591110229492188,
+        "int8_embed_int8": 0.6577706871787744,
+        "delta": -0.0013403357704443453
+      },
+      {
+        "metric": "loss.eval.dropped_too_long",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification.n",
+        "fp32": 18.0,
+        "int8_embed_int8": 18.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification.accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification_followup.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.clarification_followup.accuracy",
+        "fp32": 0.025,
+        "int8_embed_int8": 0.025,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.context_retention.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.context_retention.accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.copy.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.copy.accuracy",
+        "fp32": 0.85,
+        "int8_embed_int8": 0.825,
+        "delta": -0.025000000000000022
+      },
+      {
+        "metric": "capabilities.factual_qa.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.factual_qa.accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.instruction.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.instruction.accuracy",
+        "fp32": 0.425,
+        "int8_embed_int8": 0.4,
+        "delta": -0.024999999999999967
+      },
+      {
+        "metric": "capabilities.no_tool.n",
+        "fp32": 9.0,
+        "int8_embed_int8": 9.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.no_tool.accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.refusal.n",
+        "fp32": 37.0,
+        "int8_embed_int8": 37.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.refusal.accuracy",
+        "fp32": 0.24324324324324326,
+        "int8_embed_int8": 0.2702702702702703,
+        "delta": 0.02702702702702703
+      },
+      {
+        "metric": "capabilities.structured.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.structured.accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.paraphrase_accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_arithmetic.seen_phrasing_accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.n",
+        "fp32": 30.0,
+        "int8_embed_int8": 30.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.accuracy",
+        "fp32": 0.7666666666666667,
+        "int8_embed_int8": 0.7666666666666667,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.paraphrase_accuracy",
+        "fp32": 0.6923076923076923,
+        "int8_embed_int8": 0.6923076923076923,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_lookup.seen_phrasing_accuracy",
+        "fp32": 0.8235294117647058,
+        "int8_embed_int8": 0.8235294117647058,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_memory.n",
+        "fp32": 25.0,
+        "int8_embed_int8": 25.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_memory.accuracy",
+        "fp32": 0.96,
+        "int8_embed_int8": 0.96,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_result.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_result.accuracy",
+        "fp32": 0.125,
+        "int8_embed_int8": 0.125,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.accuracy",
+        "fp32": 0.075,
+        "int8_embed_int8": 0.075,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.paraphrase_accuracy",
+        "fp32": 0.0625,
+        "int8_embed_int8": 0.0625,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_timer.seen_phrasing_accuracy",
+        "fp32": 0.08333333333333333,
+        "int8_embed_int8": 0.08333333333333333,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.n",
+        "fp32": 40.0,
+        "int8_embed_int8": 40.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.paraphrase_accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "capabilities.tool_weather.seen_phrasing_accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.requests_needing_a_tool",
+        "fp32": 215.0,
+        "int8_embed_int8": 215.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.correct_tool_rate",
+        "fp32": 0.8372093023255814,
+        "int8_embed_int8": 0.8325581395348837,
+        "delta": -0.0046511627906977715
+      },
+      {
+        "metric": "tool_behavior.argument_accuracy",
+        "fp32": 0.025,
+        "int8_embed_int8": 0.025,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.wrong_tool_rate",
+        "fp32": 0.08372093023255814,
+        "int8_embed_int8": 0.08837209302325581,
+        "delta": 0.004651162790697674
+      },
+      {
+        "metric": "tool_behavior.no_call_rate",
+        "fp32": 0.06511627906976744,
+        "int8_embed_int8": 0.06511627906976744,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.malformed_call_rate",
+        "fp32": 0.013953488372093023,
+        "int8_embed_int8": 0.013953488372093023,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.requests_needing_no_tool",
+        "fp32": 304.0,
+        "int8_embed_int8": 304.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.false_positive_call_rate",
+        "fp32": 0.3157894736842105,
+        "int8_embed_int8": 0.3125,
+        "delta": -0.003289473684210509
+      },
+      {
+        "metric": "tool_behavior.clarification_on_missing_argument_accuracy",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.clarification_followup_call_accuracy",
+        "fp32": 0.025,
+        "int8_embed_int8": 0.025,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.tool_result_incorporation_accuracy",
+        "fp32": 0.125,
+        "int8_embed_int8": 0.125,
+        "delta": 0.0
+      },
+      {
+        "metric": "tool_behavior.refusal_accuracy",
+        "fp32": 0.24324324324324326,
+        "int8_embed_int8": 0.2702702702702703,
+        "delta": 0.02702702702702703
+      },
+      {
+        "metric": "generation.graded_examples",
+        "fp32": 519.0,
+        "int8_embed_int8": 519.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.skipped_prompt_too_long",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.max_new_tokens",
+        "fp32": 96.0,
+        "int8_embed_int8": 96.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.mean_response_tokens",
+        "fp32": 37.80346820809248,
+        "int8_embed_int8": 37.85741811175337,
+        "delta": 0.05394990366088592
+      },
+      {
+        "metric": "generation.mean_response_chars",
+        "fp32": 36.80346820809248,
+        "int8_embed_int8": 36.85741811175337,
+        "delta": 0.05394990366088592
+      },
+      {
+        "metric": "generation.unterminated_rate",
+        "fp32": 0.0,
+        "int8_embed_int8": 0.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "generation.mean_char6gram_repetition",
+        "fp32": 0.005888738702832548,
+        "int8_embed_int8": 0.006002040087810234,
+        "delta": 0.0001133013849776857
+      },
+      {
+        "metric": "generation.looping_rate_repetition_over_0.5",
+        "fp32": 0.0019267822736030828,
+        "int8_embed_int8": 0.0019267822736030828,
+        "delta": 0.0
+      },
+      {
+        "metric": "timing.generated_tokens",
+        "fp32": 19620.0,
+        "int8_embed_int8": 19648.0,
+        "delta": 28.0
+      },
+      {
+        "metric": "timing.generation_seconds",
+        "fp32": 26.379,
+        "int8_embed_int8": 26.646,
+        "delta": 0.26699999999999946
+      },
+      {
+        "metric": "timing.tokens_per_second_python_runtime",
+        "fp32": 743.77,
+        "int8_embed_int8": 737.38,
+        "delta": -6.389999999999986
+      },
+      {
+        "metric": "timing.suite_seconds",
+        "fp32": 35.75,
+        "int8_embed_int8": 35.54,
+        "delta": -0.21000000000000085
+      },
+      {
+        "metric": "python_weights_in_memory_bytes",
+        "fp32": 4858368.0,
+        "int8_embed_int8": 4858368.0,
+        "delta": 0.0
+      },
+      {
+        "metric": "wall_seconds",
+        "fp32": 35.7,
+        "int8_embed_int8": 35.5,
+        "delta": -0.20000000000000284
+      }
+    ]
+  }
+}

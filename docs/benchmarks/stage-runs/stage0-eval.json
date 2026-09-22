@@ -1,0 +1,287 @@
+{
+  "suite_version": 1,
+  "model": {
+    "parameters": 1214592,
+    "config_hash": "103a9a9053f971f148edcf83d8d1b2844e6089e7aa2d2a19328ff180ece3bd44",
+    "provenance": {
+      "checkpoint": "step-00000600",
+      "checkpoint_manifest_sha256": "d96401cf3e88a1ac44ee162b0e1765893b9013fdc0b1c96b1ce28cdd11509536",
+      "created_at": "2026-09-21T06:42:38+00:00",
+      "cumulative_steps": 600,
+      "dataset_hash": "573815af8147af6d0cdf8106fe6c7e4dc74fe37cfa2744da8bfd24fce4ed9092",
+      "final_validation": {
+        "step": 600,
+        "val_loss": 0.01636580239600691,
+        "val_ppl": 1.0165004557069555,
+        "val_tokens": 3865
+      },
+      "git_commit": "02b8bd4117d12288af6842e301152c8beeaacbae",
+      "global_step": 600,
+      "stage": "stage0",
+      "stage_complete": true,
+      "training_config_hash": "805e29febdaa6ff91fb307c60267bcfa2c0fe2e40a28047960134a48e5b86b25"
+    }
+  },
+  "loss": {
+    "validation": {
+      "loss": 0.016365807847557215,
+      "perplexity": 1.016500461248459,
+      "loss_tokens": 3865,
+      "by_category": {
+        "copy": 0.016365807847557215
+      },
+      "dropped_too_long": 0
+    },
+    "eval": {
+      "loss": 7.727487996109805,
+      "perplexity": 2269.8930529093823,
+      "loss_tokens": 29995,
+      "by_category": {
+        "clarification": 7.595266488882212,
+        "clarification_followup": 7.834781182307244,
+        "context_retention": 7.242478361460108,
+        "copy": 0.030236980307691452,
+        "factual_qa": 7.253520014044944,
+        "instruction": 6.335617662512738,
+        "language": 6.906677211707747,
+        "no_tool": 8.03236558244035,
+        "refusal": 7.6509083659918655,
+        "structured": 8.327610391579798,
+        "tool_arithmetic": 8.030734334002952,
+        "tool_lookup": 8.100818090381736,
+        "tool_memory": 7.913148729685288,
+        "tool_result": 8.242020542415109,
+        "tool_timer": 7.925476360768779,
+        "tool_weather": 8.203140071829347
+      },
+      "dropped_too_long": 0
+    }
+  },
+  "capabilities": {
+    "clarification": {
+      "n": 18,
+      "accuracy": 0.0
+    },
+    "clarification_followup": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "context_retention": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "copy": {
+      "n": 20,
+      "accuracy": 0.85
+    },
+    "factual_qa": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "instruction": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "no_tool": {
+      "n": 9,
+      "accuracy": 0.0
+    },
+    "refusal": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "structured": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "tool_arithmetic": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_lookup": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_memory": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "tool_result": {
+      "n": 20,
+      "accuracy": 0.0
+    },
+    "tool_timer": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    },
+    "tool_weather": {
+      "n": 20,
+      "accuracy": 0.0,
+      "paraphrase_accuracy": 0.0,
+      "seen_phrasing_accuracy": 0.0
+    }
+  },
+  "tool_behavior": {
+    "requests_needing_a_tool": 120,
+    "correct_tool_rate": 0.0,
+    "argument_accuracy": 0.0,
+    "wrong_tool_rate": 0.0,
+    "no_call_rate": 1.0,
+    "malformed_call_rate": 0.0,
+    "requests_needing_no_tool": 167,
+    "false_positive_call_rate": 0.0,
+    "clarification_on_missing_argument_accuracy": 0.0,
+    "clarification_followup_call_accuracy": 0.0,
+    "tool_result_incorporation_accuracy": 0.0,
+    "refusal_accuracy": 0.0
+  },
+  "generation": {
+    "graded_examples": 287,
+    "skipped_prompt_too_long": 0,
+    "max_new_tokens": 96,
+    "mean_response_tokens": 15.522648083623693,
+    "mean_response_chars": 14.529616724738675,
+    "unterminated_rate": 0.006968641114982578,
+    "mean_char6gram_repetition": 0.0012252555806562778,
+    "looping_rate_repetition_over_0.5": 0.0
+  },
+  "timing": {
+    "generated_tokens": 4455,
+    "generation_seconds": 6.79,
+    "tokens_per_second_python_runtime": 656.08,
+    "suite_seconds": 14.38
+  },
+  "failures_sample": [
+    {
+      "id": "eval-copy-0004",
+      "category": "copy",
+      "text": "WQQBTTFT"
+    },
+    {
+      "id": "eval-copy-0015",
+      "category": "copy",
+      "text": "knefgjjv"
+    },
+    {
+      "id": "eval-copy-0019",
+      "category": "copy",
+      "text": "znjpqxu"
+    },
+    {
+      "id": "eval-arith_tool-0000",
+      "category": "tool_arithmetic",
+      "text": "eureruer"
+    },
+    {
+      "id": "eval-arith_tool-0001",
+      "category": "tool_arithmetic",
+      "text": "erakroar"
+    },
+    {
+      "id": "eval-arith_tool-0002",
+      "category": "tool_arithmetic",
+      "text": "rurrrteolror"
+    },
+    {
+      "id": "eval-arith_tool-0003",
+      "category": "tool_arithmetic",
+      "text": "irsrsrmtosororatdorsoske"
+    },
+    {
+      "id": "eval-arith_tool-0004",
+      "category": "tool_arithmetic",
+      "text": "irararmtosorosienosraos"
+    },
+    {
+      "id": "eval-arith_tool-0005",
+      "category": "tool_arithmetic",
+      "text": "muluararamtueuerterakarue"
+    },
+    {
+      "id": "eval-arith_tool-0006",
+      "category": "tool_arithmetic",
+      "text": "rtothr"
+    },
+    {
+      "id": "eval-arith_tool-0007",
+      "category": "tool_arithmetic",
+      "text": "eueusrerororer"
+    },
+    {
+      "id": "eval-arith_tool-0008",
+      "category": "tool_arithmetic",
+      "text": "imsnuerwatmeu"
+    },
+    {
+      "id": "eval-arith_tool-0009",
+      "category": "tool_arithmetic",
+      "text": "rakecrar"
+    },
+    {
+      "id": "eval-arith_tool-0010",
+      "category": "tool_arithmetic",
+      "text": "oforotetor"
+    },
+    {
+      "id": "eval-arith_tool-0011",
+      "category": "tool_arithmetic",
+      "text": "oerroteoto"
+    },
+    {
+      "id": "eval-arith_tool-0012",
+      "category": "tool_arithmetic",
+      "text": "rakecrar"
+    },
+    {
+      "id": "eval-arith_tool-0013",
+      "category": "tool_arithmetic",
+      "text": "terertothsrtkatrtut"
+    },
+    {
+      "id": "eval-arith_tool-0014",
+      "category": "tool_arithmetic",
+      "text": "eotraeoar"
+    },
+    {
+      "id": "eval-arith_tool-0015",
+      "category": "tool_arithmetic",
+      "text": "eotloh"
+    },
+    {
+      "id": "eval-arith_tool-0016",
+      "category": "tool_arithmetic",
+      "text": "erakroar"
+    },
+    {
+      "id": "eval-arith_tool-0017",
+      "category": "tool_arithmetic",
+      "text": "qtoljhm"
+    },
+    {
+      "id": "eval-arith_tool-0018",
+      "category": "tool_arithmetic",
+      "text": "euersrtr"
+    },
+    {
+      "id": "eval-arith_tool-0019",
+      "category": "tool_arithmetic",
+      "text": "muluasrar"
+    },
+    {
+      "id": "eval-arith_result-0000",
+      "category": "tool_result",
+      "text": "taksram"
+    },
+    {
+      "id": "eval-arith_result-0001",
+      "category": "tool_result",
+      "text": "oerer"
+    }
+  ]
+}

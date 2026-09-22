@@ -1,0 +1,17 @@
+# ~151M parameters (approx_param_count). This is the size the engineering
+# brief names as the first practical training target (section 47): prove
+# the runtime and dataset pipeline here before 300M/500M/1B.
+model:
+  hidden_size: 832
+  num_layers: 17
+  num_heads: 8
+  num_kv_heads: 2
+  intermediate_size: 2240
+  max_seq_len: 2048
+  vocab_size: 32000
+  attention_type: gqa
+  norm_type: rmsnorm
+  mlp_type: swiglu
+  rope_theta: 10000.0
+  tie_embeddings: true
+  sliding_window: 0

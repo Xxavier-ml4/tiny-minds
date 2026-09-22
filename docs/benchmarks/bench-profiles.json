@@ -1,0 +1,128 @@
+{
+  "kind": "profiles",
+  "machine": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cores_visible": 1,
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+    "threads_env": {
+      "OPENBLAS_NUM_THREADS": null,
+      "OMP_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null
+    }
+  },
+  "rows": [
+    {
+      "profile": "tiny_debug",
+      "model": {
+        "parameters": 115264,
+        "hidden": 64,
+        "layers": 2,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 192,
+        "vocab": 260,
+        "seq_len": 128,
+        "head_dim": 16
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.0277,
+        "steps_per_sec": 36.098,
+        "seconds_per_100_steps": 2.8,
+        "tokens_per_sec": 36964,
+        "examples_per_sec": 288.78,
+        "forward_s": 0.0126,
+        "backward_s": 0.014,
+        "optimizer_s": 0.0009,
+        "step_seconds_min_max": [
+          0.0256,
+          0.031
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 0.44,
+        "kv_cache_MB_fp32_at_seq": 0.062,
+        "peak_rss_MB": 71.4
+      }
+    },
+    {
+      "profile": "tiny_mobile",
+      "model": {
+        "parameters": 1214592,
+        "hidden": 128,
+        "layers": 6,
+        "heads": 4,
+        "kv_heads": 2,
+        "intermediate": 384,
+        "vocab": 260,
+        "seq_len": 256,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.3955,
+        "steps_per_sec": 2.528,
+        "seconds_per_100_steps": 39.6,
+        "tokens_per_sec": 5178,
+        "examples_per_sec": 20.23,
+        "forward_s": 0.1831,
+        "backward_s": 0.2004,
+        "optimizer_s": 0.0093,
+        "step_seconds_min_max": [
+          0.3875,
+          0.4086
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 4.63,
+        "kv_cache_MB_fp32_at_seq": 0.75,
+        "peak_rss_MB": 306.0
+      }
+    },
+    {
+      "profile": "tiny_mobile_plus",
+      "model": {
+        "parameters": 3493824,
+        "hidden": 192,
+        "layers": 8,
+        "heads": 6,
+        "kv_heads": 2,
+        "intermediate": 576,
+        "vocab": 260,
+        "seq_len": 256,
+        "head_dim": 32
+      },
+      "training": {
+        "batch": 8,
+        "accumulation": 1,
+        "effective_batch": 8,
+        "fused_ops": true,
+        "step_seconds_median": 0.8317,
+        "steps_per_sec": 1.202,
+        "seconds_per_100_steps": 83.2,
+        "tokens_per_sec": 2462,
+        "examples_per_sec": 9.62,
+        "forward_s": 0.3532,
+        "backward_s": 0.4464,
+        "optimizer_s": 0.0252,
+        "step_seconds_min_max": [
+          0.8175,
+          0.8655
+        ]
+      },
+      "memory": {
+        "parameter_MB_fp32": 13.33,
+        "kv_cache_MB_fp32_at_seq": 1.0,
+        "peak_rss_MB": 563.9
+      }
+    }
+  ]
+}

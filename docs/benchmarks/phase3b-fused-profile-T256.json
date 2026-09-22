@@ -1,0 +1,71 @@
+{
+  "config": {
+    "hidden": 128,
+    "layers": 6,
+    "heads": 4,
+    "kv_heads": 2,
+    "intermediate": 384,
+    "seq": 256,
+    "batch": 8,
+    "vocab": 260,
+    "parameters": 1214592
+  },
+  "step_ms_median": {
+    "forward": 139.9,
+    "topo_sort": 0.1,
+    "backward": 187.5,
+    "optimizer": 8.2,
+    "total": 335.6
+  },
+  "tokens_per_sec": 6102,
+  "forward_inclusive_ms_by_module": {
+    "TinyMindTransformer": 180.6,
+    "TransformerBlock": 175.0,
+    "CausalSelfAttention": 90.9,
+    "SwiGLUMLP": 68.2,
+    "Linear": 53.8,
+    "RMSNorm": 12.0
+  },
+  "backward_ms_by_category": {
+    "attention.core(rope/scores/softmax/ctx)": 66.1,
+    "mlp.linear": 58.7,
+    "mlp.elementwise(silu/gate)": 27.1,
+    "attention.linear": 22.3,
+    "norm": 13.0,
+    "other(embed/lm_head/residual)": 4.4,
+    "loss": 2.9
+  },
+  "backward_ms_by_op_top10": {
+    "linear": 83.1,
+    "attention": 56.7,
+    "swiglu": 27.1,
+    "rmsnorm": 13.0,
+    "rope": 8.1,
+    "cross_entropy": 2.9,
+    "getitem": 2.3,
+    "reshape": 1.2,
+    "transpose": 0.2,
+    "add": 0.1
+  },
+  "graph": {
+    "nodes": 199,
+    "nodes_by_op_top8": {
+      "leaf": 56,
+      "linear": 43,
+      "reshape": 24,
+      "transpose": 24,
+      "rmsnorm": 13,
+      "rope": 12,
+      "add": 12,
+      "attention": 6
+    },
+    "retained_MB_data_plus_grad": 315.4
+  },
+  "python_overhead_estimate": {
+    "us_per_node_forward_1elem": 3.09,
+    "us_per_node_backward_1elem": 1.28,
+    "estimated_ms_per_step": 0.9,
+    "share_of_step": 0.0026
+  },
+  "peak_rss_MB": 785.6
+}

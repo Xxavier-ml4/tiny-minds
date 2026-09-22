@@ -1,0 +1,42 @@
+TinyMind
+Copyright 2026 TinyMind Contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+------------------------------------------------------------------------------
+Provenance
+------------------------------------------------------------------------------
+
+TinyMind is an independent implementation. It was designed after studying
+the architecture of Needle 2 (package name `cactus-needle`), an open-source
+project by Cactus Compute, Inc., licensed under Apache-2.0:
+
+  Source:  https://github.com/cactus-compute/needle
+  Weights: https://huggingface.co/Cactus-Compute/needle2
+
+No source code, branding, trademarks, model weights, or artwork from Needle
+is included in or reused by TinyMind. TinyMind's public API, module layout,
+model file format, class names, and configuration schema were written from
+scratch and are deliberately different from Needle's, in line with the
+engineering brief this project was built from (see
+`docs/architecture/tinymind-design.md`). Where a specific TinyMind design
+decision was directly inspired by something in the Needle source tree, that
+lineage is called out explicitly in `docs/architecture/needle-analysis.md`
+and `docs/architecture/tinymind-design.md`, section by section, rather than
+left implicit.
+
+If a future contribution to TinyMind does directly incorporate Needle source
+(which Apache-2.0 permits), that file must carry its own top-of-file notice
+identifying the origin and preserving Needle's copyright and license notices,
+per Apache License 2.0 §4(a)-(c). As of this writing, no such file exists in
+this repository.
+
+------------------------------------------------------------------------------
+Third-party dependencies
+------------------------------------------------------------------------------
+
+TinyMind depends on third-party packages declared in `pyproject.toml`, each
+under its own license (not reproduced here). Run `pip-licenses` or equivalent
+against a concrete installed environment to generate a full dependency
+license report before redistribution.
