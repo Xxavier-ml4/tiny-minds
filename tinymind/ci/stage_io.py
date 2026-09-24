@@ -31,6 +31,7 @@ CLI (used by ``.github/workflows/train-stage.yml``)::
     python -m tinymind.ci.stage_io check-incoming --dir incoming --stage stage2 --profile-config configs/tiny_mobile.yaml [--mode auto] [--expect-manifest-sha256 H] [--gate-dir configs/stages] [--skip-gate]
     python -m tinymind.ci.stage_io bundle       --run out --dest bundle --profile tiny_mobile --stage stage2 [--eval out/eval_results.json]
     python -m tinymind.ci.stage_io summary      --bundle bundle
+    python -m tinymind.ci.stage_io training-context --dir bundle
 """
 from __future__ import annotations
 
@@ -229,6 +230,16 @@ def check_incoming(directory: str | Path, *, stage: str, profile_config: str | P
     return {"mode": mode, "checkpoint": str(Path(directory) / "checkpoints"), "bundle": m, "gate": verdict}
 
 
+def read_training_context(bundle_dir: str | Path) -> dict[str, Any]:
+    """``{"stage", "seed"}`` from a verified bundle's checkpoint ``state.json``
+    — lets a downstream job (e.g. regenerating held-out eval data) recover the
+    two inputs the curriculum needs without the operator having to retype
+    them. Verifies the bundle first, same as everything else here."""
+    manifest, checkpoint_dir = verify_bundle(bundle_dir)
+    state = json.loads((checkpoint_dir / "state.json").read_text())
+    return {"stage": manifest["stage"], "seed": state["training_config"]["seed"]}
+
+
 # ---------------------------------------------------------------------------------------- reporting
 def summary_markdown(bundle: dict[str, Any], summary: dict[str, Any] | None, gate: dict[str, Any] | None = None,
                      eval_results: dict[str, Any] | None = None) -> str:
@@ -289,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--probe")
     a = sub.add_parser("summary")
     a.add_argument("--bundle", required=True)
+    a = sub.add_parser("training-context")
+    a.add_argument("--dir", required=True)
     args = p.parse_args(argv)
     try:
         if args.cmd == "runtime":
@@ -309,6 +322,9 @@ def main(argv: list[str] | None = None) -> int:
             m = bundle_run(args.run, args.dest, profile=args.profile, stage=args.stage, extra_files=extra)
             _github_output({"artifact_name": m["artifact_name"], "global_step": m["global_step"], "stage_complete": str(m["stage_complete"]).lower(),
                             "checkpoint_manifest_sha256": m["checkpoint_manifest_sha256"]})
+        elif args.cmd == "training-context":
+            ctx = read_training_context(args.dir)
+            _github_output({"stage": ctx["stage"], "seed": ctx["seed"]})
         elif args.cmd == "summary":
             b = Path(args.bundle)
             m, _ = verify_bundle(b)

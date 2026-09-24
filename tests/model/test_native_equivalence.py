@@ -16,28 +16,10 @@ import numpy as np
 
 from tinymind.model import ModelConfig, TinyMindTransformer, ByteTokenizer
 from tinymind.model.tm_export import export_to_tm
-
-_NATIVE_DIR = Path(__file__).resolve().parents[2] / "native"
-_HAS_CXX = shutil.which("g++") is not None
-
-
-def _compile(build_dir: Path, srcs: list, out_name: str) -> Path:
-    binary = build_dir / out_name
-    cmd = ["g++", "-std=c++17", "-O2",
-           "-I", str(_NATIVE_DIR / "include"), "-I", str(_NATIVE_DIR / "src"),
-           *[str(s) for s in srcs], "-o", str(binary)]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"g++ failed:\n{result.stderr}")
-    return binary
-
-
-def _build_equiv_binary(build_dir: Path) -> Path:
-    return _compile(build_dir, [
-        _NATIVE_DIR / "tests" / "test_model_equivalence.cpp",
-        _NATIVE_DIR / "src" / "model.cpp",
-        _NATIVE_DIR / "src" / "tensor.cpp",
-    ], "equiv")
+from tinymind.native_bridge import HAS_CXX as _HAS_CXX
+from tinymind.native_bridge import NATIVE_DIR as _NATIVE_DIR
+from tinymind.native_bridge import build_equivalence_binary as _build_equiv_binary
+from tinymind.native_bridge import compile_sources as _compile
 
 
 def _build_cabi_binary(build_dir: Path) -> Path:

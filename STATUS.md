@@ -343,3 +343,67 @@ concrete steps are: fix the argument-copying gap the demonstration found
 (widen the value pools — see `docs/training/three-stage-plan.md`'s closing
 section) and re-run stage 2; then run the real workflow on a GitHub
 runner at the plan's budget.
+
+## Phase 3B addendum — runner benchmarking and trained-model verification
+
+Two additions, ahead of that GitHub run, so the first real run has both a
+hardware baseline and a way to check its own output. No architecture change;
+no long training run initiated. Full suite **568 tests, all passing**
+(`python -m unittest discover -s tests`, ~113s); `tests/ci/` alone (all
+workflow/CI-related tests, old and new) is 94 tests, ~53s.
+
+* **`benchmarks/runner_benchmark.py`** + **`.github/workflows/benchmark-runner.yml`**
+  — a short (default 30-step), bounded real training run through the
+  production `TrainingEngine`, purely to characterise a machine: CPU, RAM,
+  BLAS, current thread-count env vars, exact parameter count, batch size,
+  sequence length, steps/sec, tokens/sec, peak RSS, and the **real**
+  `model.npz`/`optimizer.npz`/checkpoint-directory byte sizes (not
+  estimated from a formula) — plus `tokens/sec × 3600` labelled explicitly
+  as an estimate. Not resumable and not meant to be; it is a benchmark, not
+  a training run. `tests/ci/test_runner_benchmark.py`.
+* **`tinymind/ci/trained_model_report.py`** + **`.github/workflows/test-trained-model.yml`**
+  — takes an *already-completed* stage bundle (by artifact name), and:
+  verifies the bundle manifest, checkpoint, model config, tokenizer,
+  inference package and every SHA-256 (all-or-nothing — any failure raises
+  before anything downstream runs, and the workflow's verification step
+  cannot silently swallow that failure — checked statically in
+  `test_new_workflows.py::test_verification_step_hard_fails_and_is_never_softened`);
+  loads the exported model in a genuinely separate OS process with
+  `tinymind.training` import-blocked; runs six fixed, deterministic
+  (greedy) smoke prompts; runs the held-out capability suite and reports,
+  as separate fields, exactly the metrics asked for — validation loss,
+  held-out loss, perplexity, copy/instruction/factual-QA/structured/
+  clarification/refusal accuracy, correct-tool rate, argument accuracy,
+  wrong-tool rate, malformed-call rate, false-positive call rate; tests the
+  `.tm` artifact directly (not only through the package wrapper); and tests
+  **native** inference on that same artifact when a C++ compiler is
+  available, reported in its own section with an explicit `supported` flag
+  (never silently omitted when unsupported). Writes
+  `trained-model-report.json` and a markdown twin; neither contains a
+  verdict — `render_markdown`'s output is tested to contain none of
+  "good"/"ready"/"production-ready"/etc. outside its own one-sentence
+  disclaimer saying it makes no such judgement. `tests/ci/test_trained_model_report.py`
+  (28 tests, including two that construct a bundle whose checkpoint and
+  exported package deliberately describe *different* models, to prove the
+  cross-check between them — not just each file's own integrity — is what
+  catches that).
+* `tinymind.ci.stage_io` gained `read_training_context` (+ CLI subcommand
+  `training-context`): recovers `(stage, seed)` from a verified bundle so
+  the second workflow can regenerate the matching held-out curriculum data
+  without the operator retyping them.
+* `tinymind.native_bridge` factors the native-C++-build helper (previously
+  private to `tests/model/test_native_equivalence.py`) into a reusable
+  module, used by both that test file and the new report — no behaviour
+  change, confirmed by the same 7 native-equivalence tests still passing.
+* Both new static-workflow tests caught real bugs before they'd have
+  surfaced on an actual runner: a YAML syntax error (an unquoted colon in a
+  step name) and a direct `${{ inputs.* }}` interpolation into a shell
+  string in `benchmark-runner.yml` (the established, safer pattern —
+  already used throughout `train-stage.yml` — routes every input through
+  `env:` first). Both are fixed; this is recorded because it is exactly the
+  kind of thing "the workflow YAML/static tests" exist to catch, and did.
+
+**Still not done, unchanged from above**: neither workflow has run on an
+actual GitHub runner (no network in this sandbox); the argument-copying gap
+found in the earlier demonstration is not fixed; no production-budget stage
+run has happened.

@@ -1,0 +1,112 @@
+# Characterise a real GitHub-hosted runner for TinyMind training. This is a BENCHMARK, not a training run: it
+# runs a short, bounded number of real optimizer steps (default 30) purely to measure the hardware, then stops.
+# It produces no checkpoint meant to be resumed and does not upload a stage bundle.
+#
+# Records: CPU, RAM, BLAS, thread count, exact parameter count, batch size, sequence length, steps/sec,
+# tokens/sec, peak memory, the real checkpoint/optimizer-state file sizes, and estimated tokens/hour
+# (tokens/sec x 3600, labelled as an estimate). See benchmarks/runner_benchmark.py for exactly what each field
+# means and how it is computed.
+#
+# No secrets are used. Permissions: none beyond the default read access this job needs to check out the repo.
+name: benchmark-runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Model profile to benchmark (tiny_debug, tiny_mobile, tiny_mobile_plus)"
+        required: true
+        default: tiny_mobile
+        type: string
+      steps:
+        description: "Number of real optimizer steps to run (short and bounded — this is a benchmark, not training)"
+        required: false
+        default: "30"
+        type: string
+      batch_size:
+        description: "Batch size (empty = benchmark script's default, 8)"
+        required: false
+        default: ""
+        type: string
+      sequence_length:
+        description: "Sequence length (empty = the profile's own max_seq_len)"
+        required: false
+        default: ""
+        type: string
+      data_scale:
+        description: "Curriculum size multiplier for the tiny training slice this benchmark runs on"
+        required: false
+        default: "0.05"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install (NumPy + PyYAML only)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Select BLAS thread count for this runner
+        env:
+          PROFILE: ${{ inputs.profile }}
+        run: python benchmarks/runner_probe.py --profile "$PROFILE" --out runner_probe.json --github-env "$GITHUB_ENV"
+
+      - name: Benchmark (short, bounded — not a training run)
+        env:
+          PROFILE: ${{ inputs.profile }}
+          STEPS: ${{ inputs.steps }}
+          BATCH: ${{ inputs.batch_size }}
+          SEQ: ${{ inputs.sequence_length }}
+          DATA_SCALE: ${{ inputs.data_scale }}
+        run: |
+          args=(--profile "$PROFILE" --steps "$STEPS" --data-scale "$DATA_SCALE" --out runner_benchmark.json)
+          if [ -n "$BATCH" ]; then args+=(--batch "$BATCH"); fi
+          if [ -n "$SEQ" ]; then args+=(--seq "$SEQ"); fi
+          python benchmarks/runner_benchmark.py "${args[@]}"
+
+      - name: Job summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("runner_benchmark.json"))
+          hw, mdl, tr, mem, ck = d["hardware"], d["model"], d["training"], d["memory"], d["checkpoint"]
+          print(f"## Runner benchmark — {d['profile']}\n")
+          print("| | |\n|---|---|")
+          print(f"| CPU | {hw['cpu']} |")
+          print(f"| RAM | {hw['ram_mb']} MB |")
+          print(f"| BLAS | {hw['blas'].get('name')} {hw['blas'].get('version')} |")
+          print(f"| threads (env) | {hw['threads_env']} |")
+          print(f"| allowed cores | {hw['allowed_cores']} |")
+          print(f"| parameters | {mdl['parameters']:,} |")
+          print(f"| batch / sequence length | {tr['batch_size']} / {tr['sequence_length']} |")
+          print(f"| steps/sec | {tr['steps_per_sec']} |")
+          print(f"| tokens/sec | {tr['tokens_per_sec']} |")
+          print(f"| peak RSS | {mem['peak_rss_mb']} MB |")
+          print(f"| checkpoint total size | {ck['checkpoint_total_bytes']:,} bytes |")
+          print(f"| model weights (model.npz) | {ck['model_weights_bytes']:,} bytes |")
+          print(f"| optimizer state (optimizer.npz) | {ck['optimizer_state_bytes']:,} bytes |")
+          print(f"| estimated tokens/hour | {d['estimated_tokens_per_hour']:,} |" if d['estimated_tokens_per_hour'] else "| estimated tokens/hour | n/a |")
+          PY
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-benchmark-${{ inputs.profile }}-${{ github.run_id }}
+          path: |
+            runner_benchmark.json
+            runner_probe.json
+          if-no-files-found: error
+          retention-days: 90

@@ -188,6 +188,56 @@ class TestStageHandoff(unittest.TestCase):
         self.assertIn("not gated", decision["gate"]["note"])  # reported, not hidden
 
 
+class TestReadTrainingContext(unittest.TestCase):
+    """Phase 3B+: recovering (stage, seed) from a bundle so a downstream job can regenerate its eval data
+    without the operator having to retype them (and without them ever drifting out of sync)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="tm-ctx-"))
+        cls.profile = cls.tmp / "ci_tiny.yaml"
+        cls.profile.write_text(PROFILE_YAML)
+        cls.data = cls.tmp / "data"
+        code, _, err = cli(["data", "build-curriculum", "--stage", "stage0", "--out", str(cls.data), "--scale", "0.01"])
+        assert code == 0, err
+        cls.out = cls.tmp / "run"
+        code, _, err = cli(["train", "--config", str(cls.profile), "--dataset", str(cls.data), "--output", str(cls.out),
+                            "--stage", "stage0", "--seed", "7", "--overflow", "drop"])
+        assert code == 0, err
+        cls.bundle = cls.tmp / "bundle"
+        bundle_run(cls.out, cls.bundle, profile="ci_tiny", stage="stage0")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_matches_what_the_run_was_actually_configured_with(self):
+        ctx = stage_io.read_training_context(self.bundle)
+        self.assertEqual(ctx, {"stage": "stage0", "seed": 7})
+
+    def test_refuses_a_corrupt_bundle_the_same_as_everything_else(self):
+        broken = self.tmp / "broken"
+        shutil.copytree(self.bundle, broken)
+        (broken / "bundle_manifest.json").write_text("{not json")
+        with self.assertRaises(BundleError):
+            stage_io.read_training_context(broken)
+
+    def test_cli_subcommand_writes_github_output(self):
+        gh_out = self.tmp / "gh_output.txt"
+        import os
+        old = os.environ.get("GITHUB_OUTPUT")
+        os.environ["GITHUB_OUTPUT"] = str(gh_out)
+        try:
+            code = stage_io.main(["training-context", "--dir", str(self.bundle)])
+        finally:
+            if old is None:
+                os.environ.pop("GITHUB_OUTPUT", None)
+            else:
+                os.environ["GITHUB_OUTPUT"] = old
+        self.assertEqual(code, 0)
+        self.assertEqual(gh_out.read_text(), "stage=stage0\nseed=7\n")
+
+
 class TestSmallPieces(unittest.TestCase):
     def test_runtime_budget(self):
         self.assertEqual(runtime_seconds(5.0), 5 * 3600 - 15 * 60)

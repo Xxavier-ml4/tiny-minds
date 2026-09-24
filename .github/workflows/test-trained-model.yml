@@ -1,0 +1,128 @@
+# Verify and evaluate an ALREADY-TRAINED artifact. This workflow trains nothing: it downloads a stage bundle
+# produced by train-stage.yml, verifies its manifest/checkpoint/model-config/tokenizer/inference-package and
+# every SHA-256 (tinymind/ci/trained_model_report.py — fails the job, not just a note, if any of that fails: no
+# threshold here is a number that can be quietly turned down), loads the exported model in a fresh process,
+# runs a fixed set of deterministic smoke prompts, runs the held-out capability suite, tests the .tm artifact
+# directly, and tests native (C++) inference on this exact artifact when a compiler is available — reported
+# separately from the Python numbers either way.
+#
+# Output: trained-model-report.json (machine-readable) and trained-model-report.md (human-readable), both
+# measurements only — this workflow does not decide or claim that a model is "good" or "production ready".
+# (tinymind stage-gate, run separately, is where pass/fail policy against these numbers lives.)
+#
+# No secrets are used. Permissions: `contents: read` and `actions: read` (to download an artifact from another
+# run of this repository, mirroring train-stage.yml).
+name: test-trained-model
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_name:
+        description: "Name of the stage bundle artifact to verify and evaluate (from train-stage.yml's output)"
+        required: true
+        type: string
+      artifact_run_id:
+        description: "Run id that produced the artifact (empty = find the newest artifact with that name)"
+        required: false
+        default: ""
+        type: string
+      eval_data_scale:
+        description: "Size multiplier for the freshly-generated held-out evaluation set (independent of the scale used to train)"
+        required: false
+        default: "1.0"
+        type: string
+      eval_limit_per_category:
+        description: "Held-out examples evaluated per capability category"
+        required: false
+        default: "15"
+        type: string
+      max_new_tokens:
+        description: "Max tokens generated per smoke prompt / eval example"
+        required: false
+        default: "32"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test-trained-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install (+ a C++ compiler, for the native-inference check)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          sudo apt-get update -qq && sudo apt-get install -y -qq g++ || echo "::warning::could not install g++; native inference will be reported as unsupported"
+
+      - name: Locate the artifact
+        id: locate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT: ${{ inputs.artifact_name }}
+          RUN_ID_IN: ${{ inputs.artifact_run_id }}
+        run: |
+          if [ -n "$RUN_ID_IN" ]; then
+            run_id="$RUN_ID_IN"
+          else
+            run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=${ARTIFACT}&per_page=1" --jq '.artifacts[0].workflow_run.id')
+          fi
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error::no artifact named '$ARTIFACT' found in $GITHUB_REPOSITORY"
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download the artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          run-id: ${{ steps.locate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          path: bundle
+
+      - name: Read the artifact's stage and seed
+        id: context
+        run: python -m tinymind.ci.stage_io training-context --dir bundle
+
+      - name: "Regenerate held-out evaluation data (deterministic given stage + seed)"
+        env:
+          STAGE: ${{ steps.context.outputs.stage }}
+          SEED: ${{ steps.context.outputs.seed }}
+          SCALE: ${{ inputs.eval_data_scale }}
+        run: python -m tinymind.cli data build-curriculum --stage "$STAGE" --out data --seed "$SEED" --scale "$SCALE"
+
+      - name: Verify and evaluate (fails the job on any verification failure)
+        env:
+          LIMIT: ${{ inputs.eval_limit_per_category }}
+          MAX_NEW: ${{ inputs.max_new_tokens }}
+        run: |
+          python -m tinymind.ci.trained_model_report --bundle bundle --data data \
+            --eval-limit-per-category "$LIMIT" --max-new-tokens "$MAX_NEW" \
+            --out-json trained-model-report.json --out-md trained-model-report.md
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f trained-model-report.md ]; then cat trained-model-report.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model-report-${{ inputs.artifact_name }}
+          path: |
+            trained-model-report.json
+            trained-model-report.md
+          if-no-files-found: warn
+          retention-days: 90
