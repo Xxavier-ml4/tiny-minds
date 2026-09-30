@@ -19,6 +19,7 @@ native runtime yet — it is a measured alternative, not the default.
 """
 from __future__ import annotations
 
+import heapq
 import re
 from collections import Counter
 from typing import Any, Iterable, Sequence
@@ -118,38 +119,73 @@ class BPETokenizer(Tokenizer):
     @classmethod
     def train(cls, texts: Iterable[str], vocab_size: int) -> "BPETokenizer":
         """Learn ``vocab_size - 260`` merges from ``texts``. Deterministic for a given corpus order-independent input
-        (word frequencies only), so two runs on the same texts produce the same tokenizer."""
+        (word frequencies only), so two runs on the same texts produce the same tokenizer.
+
+        Each step merges the most frequent adjacent pair (pair frequency = the sum, over the distinct pieces, of the
+        piece's frequency times the pair's occurrences in it, overlapping ones included; ties go to the smaller pair
+        of ids), rewriting every occurrence left to right, and stops early only when no pair is left. The pair
+        counts are kept up to date INCREMENTALLY — only the pieces that contain the merged pair are rewritten and
+        re-counted — with a lazily invalidated heap for the maximum. That is the same procedure as recounting every
+        pair of every piece at every step (tests/model/test_bpe.py checks the merge lists are identical) at a small
+        fraction of the cost: a 16k vocabulary learned from megabytes of real text takes minutes, not an hour of the
+        CI job's training budget."""
         if vocab_size < BASE:
             raise ValueError(f"vocab_size must be >= {BASE} (the byte tokenizer's size)")
-        words: Counter = Counter()
+        piece_freq: Counter = Counter()
         for text in texts:
-            for piece in _PRETOKEN.findall(text):
-                if len(piece) > 0:
-                    words[tuple(b + NUM_SPECIALS for b in piece.encode("utf-8"))] += 1
+            piece_freq.update(_PRETOKEN.findall(text))   # the pattern never matches an empty string
+        words: list[list[int]] = [[b + NUM_SPECIALS for b in piece.encode("utf-8")] for piece in piece_freq]
+        freqs: list[int] = list(piece_freq.values())
+        del piece_freq
+        counts: dict[tuple[int, int], int] = {}
+        where: dict[tuple[int, int], set[int]] = {}   # pair -> pieces that contain (or once contained) it
+        for index, (word, freq) in enumerate(zip(words, freqs)):
+            for pair in zip(word, word[1:]):
+                counts[pair] = counts.get(pair, 0) + freq
+                where.setdefault(pair, set()).add(index)
+        # Max-heap on (count, -a, -b) as a min-heap of (-count, a, b). An entry is current only while its count
+        # equals the pair's count; every count change pushes a fresh entry, and stale ones are dropped on sight.
+        heap = [(-count, a, b) for (a, b), count in counts.items()]
+        heapq.heapify(heap)
         merges: list[tuple[int, int]] = []
-        table = dict(words)
         for i in range(vocab_size - BASE):
-            pairs: Counter = Counter()
-            for word, freq in table.items():
-                for a, b in zip(word, word[1:]):
-                    pairs[(a, b)] += freq
-            if not pairs:
-                break
-            best = max(pairs.items(), key=lambda kv: (kv[1], -kv[0][0], -kv[0][1]))[0]
+            while heap and counts.get((heap[0][1], heap[0][2]), 0) != -heap[0][0]:
+                heapq.heappop(heap)
+            if not heap:
+                break   # no pair left anywhere: every piece is a single token
+            _, a, b = heapq.heappop(heap)
+            best = (a, b)
             merges.append(best)
             new_id = BASE + i
-            merged: dict[tuple[int, ...], int] = {}
-            for word, freq in table.items():
-                if len(word) > 1:
-                    out, j = [], 0
-                    while j < len(word):
-                        if j < len(word) - 1 and (word[j], word[j + 1]) == best:
-                            out.append(new_id)
-                            j += 2
-                        else:
-                            out.append(word[j])
-                            j += 1
-                    word = tuple(out)
-                merged[word] = merged.get(word, 0) + freq
-            table = merged
+            delta: dict[tuple[int, int], int] = {}
+            for index in where.pop(best, ()):
+                word = words[index]
+                out: list[int] = []
+                j, n, hit = 0, len(word), False
+                while j < n:
+                    if j < n - 1 and word[j] == a and word[j + 1] == b:
+                        out.append(new_id)
+                        j += 2
+                        hit = True
+                    else:
+                        out.append(word[j])
+                        j += 1
+                if not hit:
+                    continue   # an index entry left over from before an earlier merge rewrote this piece
+                freq = freqs[index]
+                for pair in zip(word, word[1:]):
+                    delta[pair] = delta.get(pair, 0) - freq
+                for pair in zip(out, out[1:]):
+                    delta[pair] = delta.get(pair, 0) + freq
+                    if new_id in pair:
+                        where.setdefault(pair, set()).add(index)
+                words[index] = out
+            for pair, change in delta.items():
+                if change:
+                    count = counts.get(pair, 0) + change
+                    if count:
+                        counts[pair] = count
+                        heapq.heappush(heap, (-count, pair[0], pair[1]))
+                    else:
+                        del counts[pair]
         return cls(merges)

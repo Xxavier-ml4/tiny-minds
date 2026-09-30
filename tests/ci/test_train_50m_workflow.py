@@ -116,6 +116,46 @@ class TestTrain50MWorkflow(unittest.TestCase):
     def test_bundle_carries_the_tokenizer_sample_provenance(self):
         self.assertIn("tokenizer_sample_manifest.json", self.step("Bundle")["run"])
 
+    # ---- executed steps: run the step's own script the way GitHub runs it --------------------------------
+    def run_step(self, prefix, cwd, **env):
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        shim = Path(tempfile.mkdtemp())
+        (shim / "python").symlink_to(sys.executable)   # the workflow calls `python` (setup-python provides it)
+        root = str(WF.parents[2])
+        full = dict(os.environ, PATH=f"{shim}{os.pathsep}{os.environ.get('PATH', '')}",
+                    PYTHONPATH=os.pathsep.join(p for p in (root, os.environ.get("PYTHONPATH", "")) if p), **env)
+        return subprocess.run(["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", self.step(prefix)["run"]],
+                              cwd=cwd, env=full, capture_output=True, text=True, timeout=600)
+
+    def test_profile_check_passes_for_the_real_50m_profile(self):
+        # Regression: the step parsed `model info`'s STDOUT for the count, which that command prints on STDERR, so
+        # the very first real run failed with "50m profile did not report 50,370,624 parameters".
+        done = self.run_step("Confirm the profile", WF.parents[2], PROFILE="50m")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("50m: 50,370,624 parameters", done.stdout)
+
+    def test_tokenizer_step_fails_fast_when_the_corpus_is_too_small_for_the_vocabulary(self):
+        import tempfile
+        from tests.model.test_bpe import CORPUS
+        for vocab, ok in ((300, True), (5000, False)):
+            ws = Path(tempfile.mkdtemp())
+            (ws / "configs").mkdir()
+            (ws / "configs" / "p.yaml").write_text(
+                f"model:\n  vocab_size: {vocab}\ntokenizer:\n  type: bpe\n  path: ../tokenizers/t.json\n")
+            (ws / "data").mkdir()
+            (ws / "data" / "train_a.jsonl").write_text("".join(json.dumps({"text": t}) + "\n" for t in CORPUS))
+            done = self.run_step("Ensure the BPE tokenizer", ws, PROFILE="p", DATA_DIR="data")
+            if ok:
+                self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+                self.assertEqual(json.loads((ws / "tokenizers" / "t.json").read_text())["vocab_size"], vocab)
+            else:   # the text runs out of pairs long before 5000 tokens: fail here, saying why
+                self.assertEqual(done.returncode, 1, done.stdout + done.stderr)
+                self.assertIn(f"::error::the tokenizer reached only", done.stdout)
+                self.assertIn(f"of {vocab} tokens", done.stdout)
+
     def test_inputs_never_interpolated_into_shell_and_all_declared(self):
         import re
         self.assertNotIn("${{", self.run_text)

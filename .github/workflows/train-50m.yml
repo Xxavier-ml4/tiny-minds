@@ -194,13 +194,17 @@ jobs:
 
       - name: Confirm the profile really is the 50M model
         run: |
+          python -m tinymind.cli model info "$PROFILE"
           python - <<'PY'
-          import json, subprocess, os
-          out = subprocess.check_output(["python","-m","tinymind.cli","model","info",os.environ["PROFILE"]]).decode()
-          print(out)
-          # The 50m profile must report the exact parameter count the brief fixes (section 1).
-          if os.environ["PROFILE"] == "50m" and "50,370,624" not in out and "50370624" not in out:
-              raise SystemExit("::error::50m profile did not report 50,370,624 parameters")
+          import os
+          from tinymind.cli_training import load_profile
+          # Count from the profile itself: `model info` prints the count on stderr, so parsing its stdout never
+          # found it. The 50m profile must have the exact parameter count the brief fixes (section 1).
+          model_config, _, _ = load_profile(os.environ["PROFILE"])
+          n = model_config.count_parameters()
+          print(f"{os.environ['PROFILE']}: {n:,} parameters")
+          if os.environ["PROFILE"] == "50m" and n != 50_370_624:
+              raise SystemExit(f"::error::50m profile has {n:,} parameters, not 50,370,624")
           PY
 
       - name: Check the time budget
@@ -294,8 +298,8 @@ jobs:
             # source of the real corpus's TRAIN split (never its held-out splits), plus a sample of the synthetic
             # supplements (tinymind data tokenizer-sample; recorded in sample_manifest.json). The seed is fixed,
             # not the training seed, so every stage's job derives the same sample and hence the same tokenizer.
-            # Size: pure-Python BPE training cost grows with the sample's unique words; for a real run, train
-            # the tokenizer once and commit it to the profile's tokenizer path (this step is then skipped).
+            # Cost: BPE training updates pair counts incrementally, so a 16k vocabulary from this sample takes
+            # seconds. Committing the result to the profile's tokenizer path pins it (this step is then skipped).
             sample=()
             if [ -f data/corpus/corpus_manifest.json ]; then sample+=(--corpus data/corpus); fi
             if [ -f data/external/prepared_manifest.json ]; then sample+=(--external data/external); fi
@@ -308,6 +312,13 @@ jobs:
             mkdir -p "$(dirname "$TOK_PATH")"
             echo "Training a ${VOCAB}-token BPE tokenizer from ${inputs[*]} -> ${TOK_PATH}"
             python -m tinymind.cli tokenizer train-bpe --input "${inputs[@]}" --vocab-size "$VOCAB" --output "$TOK_PATH"
+            # train-bpe stops early (and still succeeds) when the text runs out of pairs to merge: fail HERE, with
+            # the reason, instead of at the Train step with a vocabulary mismatch.
+            got=$(python -c "import json, sys; print(json.load(open(sys.argv[1]))['vocab_size'])" "$TOK_PATH")
+            if [ "$got" != "$VOCAB" ]; then
+              echo "::error::the tokenizer reached only ${got} of ${VOCAB} tokens: the corpus is far too small for this vocabulary. Run with a real corpus: dataset_manifest=datasets/v2/corpus.manifest.example.json and allow_download=true."
+              exit 1
+            fi
           else
             echo "Tokenizer already present or profile uses a byte tokenizer; nothing to build."
           fi

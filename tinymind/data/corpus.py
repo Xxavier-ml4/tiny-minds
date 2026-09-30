@@ -42,10 +42,13 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import http.client
 import json
 import math
 import os
 import re
+import sys
+import time
 import urllib.error
 import urllib.request
 import zlib
@@ -104,11 +107,16 @@ def _hash_file(path: Path) -> tuple[str, int]:
 
 
 def fetch_shard(shard: str, *, base_dir: Path, cache_dir: Path, allow_download: bool, auth_env: str = "",
-                expected_sha256: str = "", timeout: float = 120.0) -> tuple[Path, str, int]:
+                expected_sha256: str = "", timeout: float = 120.0, attempts: int = 3,
+                backoff_seconds: float = 10.0) -> tuple[Path, str, int]:
     """``(local file, sha256, bytes)`` for one shard. Local and ``file://`` shards
     are read in place; ``http(s)`` shards are streamed into ``cache_dir`` in 1 MiB
     blocks with the hash computed on the fly, and only when ``allow_download``.
-    A given ``expected_sha256`` must match or the shard is rejected."""
+    A given ``expected_sha256`` must match or the shard is rejected.
+
+    A download that fails transiently (connection error, timeout, a body cut short of its Content-Length, HTTP
+    408/429/5xx) is retried from scratch up to ``attempts`` times in all, ``backoff_seconds`` x attempt apart; any
+    other HTTP error (404, 401, 403, ...) fails at once."""
     if shard_needs_network(shard):
         shown = redact_url(shard)
         if not allow_download:
@@ -131,17 +139,36 @@ def fetch_shard(shard: str, *, base_dir: Path, cache_dir: Path, allow_download: 
                 return dest, got, n
             dest.unlink()
         part = dest.with_name(dest.name + ".part")
-        digest, n = hashlib.sha256(), 0
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response, part.open("wb") as out:
-                for block in iter(lambda: response.read(1 << 20), b""):
-                    digest.update(block)
-                    out.write(block)
-                    n += len(block)
-        except (urllib.error.URLError, OSError, ValueError) as exc:
-            part.unlink(missing_ok=True)
-            reason = getattr(exc, "reason", None) or getattr(exc, "code", None) or type(exc).__name__
-            raise CorpusError(f"download of {shown} failed: {reason}") from None
+        for attempt in range(1, max(1, attempts) + 1):
+            digest, n = hashlib.sha256(), 0
+            try:
+                with urllib.request.urlopen(request, timeout=timeout) as response, part.open("wb") as out:
+                    length = response.headers.get("Content-Length")
+                    for block in iter(lambda: response.read(1 << 20), b""):
+                        digest.update(block)
+                        out.write(block)
+                        n += len(block)
+                if length and length.strip().isdigit() and n != int(length):
+                    # http.client returns a short body silently when the connection drops mid-transfer
+                    raise http.client.IncompleteRead(b"", int(length) - n)
+                break
+            except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:
+                part.unlink(missing_ok=True)
+                if isinstance(exc, urllib.error.HTTPError):
+                    exc.close()   # an HTTP error carries the open response (and its socket)
+                code = getattr(exc, "code", None)
+                if isinstance(exc, http.client.IncompleteRead):
+                    reason = f"connection closed after {n:,} of {n + (exc.expected or 0):,} bytes"
+                else:
+                    reason = getattr(exc, "reason", None) or code or type(exc).__name__
+                permanent = isinstance(exc, ValueError) or (   # a malformed URL, or the server said no
+                    isinstance(exc, urllib.error.HTTPError) and code not in (408, 429) and not 500 <= code < 600)
+                if permanent or attempt >= max(1, attempts):
+                    tried = f" (after {attempt} attempts)" if attempt > 1 else ""
+                    raise CorpusError(f"download of {shown} failed{tried}: {reason}") from None
+                print(f"[corpus] download of {shown} failed ({reason}); retrying ({attempt + 1}/{attempts})",
+                      file=sys.stderr)
+                time.sleep(backoff_seconds * attempt)
         got = digest.hexdigest()
         if expected_sha256 and got != expected_sha256:
             part.unlink(missing_ok=True)

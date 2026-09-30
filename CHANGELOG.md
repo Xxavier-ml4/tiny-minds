@@ -4,6 +4,44 @@ All notable changes to this project are recorded here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); this project has
 not yet made a tagged release, so everything below is unreleased.
 
+## [Unreleased] — Fixes from the first GitHub run of train-50m
+
+### Fixed
+
+- The first real run failed at "Confirm the profile really is the 50M model":
+  the step searched `tinymind model info`'s standard output for
+  `50,370,624`, but that command prints the count on standard error. The
+  step now counts the profile's parameters directly
+  (`load_profile(...).count_parameters()`). A test runs the step's own
+  script against the real 50m profile.
+- When the corpus was too small for the profile's vocabulary, the tokenizer
+  step still succeeded. For example, the default hermetic manifest gives a
+  1,557-token BPE for a 16,000-token profile. The run then failed later at
+  the Train step with a vocabulary mismatch. The step now fails immediately,
+  names the fix (a real corpus with `allow_download=true`), and is covered
+  by an executed-step test.
+
+### Changed
+
+- `BPETokenizer.train` keeps pair counts up to date incrementally: after
+  each merge it recounts only the words that contain the merged pair, and a
+  lazily invalidated heap tracks the maximum. It produces the same merges
+  as recounting every pair at every step, including tie-breaks and
+  overlapping pairs. `tests/model/test_bpe.py` compares the two on several
+  corpora, and mutation checks confirm those tests catch deviations.
+  - A 16k vocabulary from the 8,000-chunk tokenizer sample now trains in
+    about 1 second instead of 20–60 minutes.
+  - Every CI job re-derives the tokenizer, so this cost used to come out of
+    every job's training budget.
+- `fetch_shard` retries a failed http(s) download up to 3 attempts in all,
+  with backoff. It retries connection errors, timeouts, HTTP 408/429/5xx,
+  and bodies cut short of their `Content-Length`. Before, `http.client`
+  accepted a short body silently. Other HTTP errors such as 404 still fail
+  at once.
+  - The http(s) path had no test. A local-server test now covers the
+    redirect, the bearer token reaching the first host only, retries, and
+    the refusal of truncated bodies.
+
 ## [Unreleased] — Audit of the objective-driven stages and the Stage-1 corpus path
 
 ### Fixed

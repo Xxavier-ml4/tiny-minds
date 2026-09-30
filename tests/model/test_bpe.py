@@ -102,5 +102,76 @@ class TestBPE(unittest.TestCase):
                         val_data=TokenizedDataset.from_records(records(8, 1000, "v"), r2, 96, name="val"))
 
 
+def _reference_merges(texts, vocab_size):
+    """The original trainer, verbatim in substance: recount every pair of every distinct piece at every step. Kept as
+    the specification the incremental BPETokenizer.train must reproduce merge for merge."""
+    from collections import Counter
+    from tinymind.model.bpe import _PRETOKEN, NUM_SPECIALS
+    words = Counter()
+    for text in texts:
+        for piece in _PRETOKEN.findall(text):
+            words[tuple(b + NUM_SPECIALS for b in piece.encode("utf-8"))] += 1
+    merges, table = [], dict(words)
+    for i in range(vocab_size - BASE):
+        pairs = Counter()
+        for word, freq in table.items():
+            for a, b in zip(word, word[1:]):
+                pairs[(a, b)] += freq
+        if not pairs:
+            break
+        best = max(pairs.items(), key=lambda kv: (kv[1], -kv[0][0], -kv[0][1]))[0]
+        merges.append(best)
+        merged = {}
+        for word, freq in table.items():
+            out, j = [], 0
+            while j < len(word):
+                if j < len(word) - 1 and (word[j], word[j + 1]) == best:
+                    out.append(BASE + i)
+                    j += 2
+                else:
+                    out.append(word[j])
+                    j += 1
+            merged[tuple(out)] = merged.get(tuple(out), 0) + freq
+        table = merged
+    return merges
+
+
+class TestIncrementalTrainingMatchesTheReference(unittest.TestCase):
+    """BPETokenizer.train updates pair counts incrementally (so a 16k vocabulary trains in minutes inside a CI job);
+    it must learn exactly the merges of the recount-everything procedure, including its tie-breaks, overlapping
+    pairs (``aaa``), multi-byte characters, and stopping early when no pair is left."""
+
+    def assert_same(self, texts, vocab_size):
+        texts = list(texts)
+        expected = _reference_merges(texts, vocab_size)
+        self.assertEqual([list(m) for m in BPETokenizer.train(texts, vocab_size).spec()["merges"]],
+                         [list(m) for m in expected])
+        return expected
+
+    def test_small_corpus_at_several_sizes_and_until_exhausted(self):
+        for size in (261, 300, 400):
+            self.assert_same(CORPUS, size)
+        merges = self.assert_same(CORPUS, 5000)   # far more than the corpus supports: both stop at the same point
+        self.assertLess(len(merges), 5000 - BASE)
+
+    def test_overlapping_repeats_ties_and_unicode(self):
+        texts = ["aaaa aaa aa a aaaaa", "abababab abab ab", "xxyxxyxxy xyxy", "zzzz zzzz zzzz", "aaabbb bbbaaa",
+                 "naïve café — ☃ 日本語 🙂 ééé", "a1 a22 a333 __ ___ !!! ?!?!", "\t\t  \n\n  x"]
+        self.assert_same(texts, 2000)
+
+    def test_random_corpora_with_many_ties(self):
+        import random
+        for seed in range(4):
+            rng = random.Random(seed)
+            alphabet = "ab" if seed % 2 == 0 else "abcde.,é1 "
+            texts = ["".join(rng.choice(alphabet) for _ in range(rng.randint(0, 40))) for _ in range(300)]
+            self.assert_same(texts, 1500)
+
+    def test_natural_english_sample(self):
+        from pathlib import Path
+        text = (Path(__file__).resolve().parents[2] / "datasets/v2/samples/stage1_language_sample.txt").read_text()
+        self.assert_same(text.splitlines(), 1200)
+
+
 if __name__ == "__main__":
     unittest.main()

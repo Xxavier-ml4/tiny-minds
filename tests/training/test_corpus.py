@@ -121,6 +121,85 @@ class TestIngestionAndProvenance(CorpusFixture):
             prepare_corpus([CorpusSource("p", ["https://example.com/p.txt"], auth_env="TM_TEST_UNSET_VAR")],
                            self.d / "o2", TOK, allow_download=True)
 
+    def test_http_download_through_a_redirect_with_a_token_and_retries(self):
+        # The http(s) path a real run takes (e.g. Hugging Face resolve URLs answer with a redirect to a CDN), served
+        # from a local server: streamed into the cache, hashed, token sent to the first host only, transient failures
+        # (5xx, a body cut short of its Content-Length) retried, permanent ones (404) not.
+        import contextlib
+        import http.server
+        import io
+        import threading
+        from unittest import mock
+        from tinymind.data.corpus import fetch_shard
+
+        body = (self.d / "docs.jsonl.gz").read_bytes()
+        seen: list[tuple[str, str]] = []
+        failures = {"/flaky": 1, "/cut": 1, "/cut-always": 99}
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                seen.append((self.path, self.headers.get("Authorization") or ""))
+                if self.path == "/redirect/docs.jsonl.gz":
+                    self.send_response(302)
+                    self.send_header("Location", "/files/docs.jsonl.gz")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                elif self.path == "/files/docs.jsonl.gz" or (self.path in failures and failures[self.path] <= 0):
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                elif self.path == "/flaky":
+                    failures["/flaky"] -= 1
+                    self.send_error(503)
+                elif self.path in ("/cut", "/cut-always"):
+                    failures[self.path] -= 1
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body[:len(body) // 2])
+                    self.close_connection = True
+                else:
+                    self.send_error(404)
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        env = {"no_proxy": "127.0.0.1,localhost", "NO_PROXY": "127.0.0.1,localhost", "TM_TEST_HTTP_TOKEN": "tok-123"}
+        with mock.patch.dict(os.environ, env), contextlib.redirect_stderr(io.StringIO()) as log:
+            src = [CorpusSource("web", [f"{base}/redirect/docs.jsonl.gz"], type="url", format="jsonl", chunk_chars=400,
+                                sha256=[_sha(self.d / "docs.jsonl.gz")], auth_env="TM_TEST_HTTP_TOKEN", license="CC0-1.0")]
+            man = prepare_corpus(src, self.d / "web", TOK, allow_download=True, validation=0.15, test=0.15)
+            self.assertEqual(seen, [("/redirect/docs.jsonl.gz", "Bearer tok-123"), ("/files/docs.jsonl.gz", "")])
+            shard = man["sources"][0]["shards"][0]
+            self.assertEqual(shard["sha256"], _sha(self.d / "docs.jsonl.gz"))
+            self.assertTrue((self.d / "web" / "train.jsonl").read_text().splitlines())
+
+            kw = dict(base_dir=self.d, cache_dir=self.d / "cache", allow_download=True, backoff_seconds=0)
+            for path in ("/flaky", "/cut"):   # fails once, then succeeds on the retry
+                seen.clear()
+                got, digest, size = fetch_shard(base + path, **kw)
+                self.assertEqual((got.read_bytes(), size), (body, len(body)), path)
+                self.assertEqual([p for p, _ in seen], [path, path])
+            seen.clear()
+            with self.assertRaises(CorpusError) as cm:   # a short body every time: never accepted as the shard
+                fetch_shard(base + "/cut-always", **kw)
+            self.assertIn("after 3 attempts", str(cm.exception))
+            self.assertIn("connection closed after", str(cm.exception))
+            self.assertEqual(len(seen), 3)
+            self.assertFalse(list((self.d / "cache").glob("*cut-always*")))   # no partial file left as the shard
+            seen.clear()
+            with self.assertRaises(CorpusError) as cm:   # permanent: no retry
+                fetch_shard(base + "/missing.jsonl.gz", **kw)
+            self.assertIn("Not Found", str(cm.exception))
+            self.assertEqual(len(seen), 1)
+        self.assertIn("retrying (2/3)", log.getvalue())   # each retry is announced in the job log
+
     def test_tampered_prepared_corpus_is_detected(self):
         self.prepare()
         f = self.d / "out" / "val.jsonl"

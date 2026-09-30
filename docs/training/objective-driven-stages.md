@@ -176,12 +176,21 @@ It is never "the first N records": on a 6-shard test corpus, the first 10,000
 lines covered only 2 shards. The seed is fixed (0), so every stage's job
 derives the same tokenizer.
 
-Pure-Python BPE training costs roughly 1.8 µs per unique word per merge. The
-16k vocabulary needs about 15,700 merges, so keep the sample modest (the
-default is 8,000 corpus chunks, about 8 MB). For a real run, train the
-tokenizer once and commit it to the profile's tokenizer path: the workflow
-then skips this step. The trainer's wall-clock budget already subtracts the
-time a job spends on data preparation and tokenizer training.
+BPE training updates its pair counts incrementally: only the words that
+contain the merged pair are recounted. The 16k vocabulary (about 15,700
+merges) therefore trains from the default sample in seconds, where
+recounting every pair at every merge took 20–60 minutes of each job's
+budget. The default sample is 8,000 corpus chunks, about 8 MB.
+`tests/model/test_bpe.py` checks that the merges are identical to that
+recount-everything procedure.
+
+Every job re-derives the same tokenizer from the same corpus. You can also
+commit it to the profile's tokenizer path to pin it; the workflow then
+skips this step. If the corpus is too small to reach the profile's
+`vocab_size`, the step fails with that reason. It no longer waits for a
+vocabulary mismatch at the Train step. The trainer's wall-clock budget
+already subtracts the time a job spends on data preparation and tokenizer
+training.
 
 `tinymind data build-curriculum-v2 --stage stage1 --out data --corpus data/corpus`
 adds the corpus to a stage, as the stage's `corpus` block in
