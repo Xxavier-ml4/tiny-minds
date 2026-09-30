@@ -128,6 +128,54 @@ def _cmd_model_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_tokenizer_train_bpe(args: argparse.Namespace) -> int:
+    """Train a byte-level BPE tokenizer from a corpus and write tokenizer.json
+    (brief section 2): deterministic, full merge list, spec hash reported."""
+    from tinymind.model.bpe_io import save_tokenizer, spec_hash, train_bpe
+    try:
+        tokenizer = train_bpe(args.input, vocab_size=args.vocab_size)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    digest = save_tokenizer(tokenizer, args.output)
+    report = {"output": args.output, "type": "bpe", "vocab_size": tokenizer.vocab_size,
+              "merges": len(tokenizer.spec()["merges"]), "spec_sha256": digest}
+    print(json.dumps(report, indent=2))
+    # The hash is the tokenizer's stored identity (checkpoints/packages compare it).
+    print(f"\ntokenizer spec SHA-256: {digest}", file=sys.stderr)
+    return 0
+
+
+def _cmd_benchmark_train_step(args: argparse.Namespace) -> int:
+    """50M memory/throughput preflight (brief section 7)."""
+    from tinymind.training.benchmark_50m import DEFAULT_SHAPES, run
+    try:
+        config = load_preset(args.config)
+    except ModelConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    shapes = _parse_shapes(args.shapes) if args.shapes else DEFAULT_SHAPES
+    result = run(config, shapes=shapes, seq_len=args.seq_len, seed=args.seed, warmup=not args.no_warmup)
+    print(json.dumps(result, indent=2))
+    if not result["passed"]:
+        print("\npreflight FAILED: at least one shape did not complete a step (see 'errors')", file=sys.stderr)
+    return 0 if result["passed"] else 1
+
+
+def _parse_shapes(text: str) -> tuple[tuple[int, int], ...]:
+    """``"1x8,1x16,1x32"`` -> ((1,8),(1,16),(1,32))."""
+    shapes = []
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        b, _, a = part.partition("x")
+        shapes.append((int(b), int(a)))
+    if not shapes:
+        raise argparse.ArgumentTypeError(f"no shapes parsed from {text!r} (expected e.g. '1x8,1x16')")
+    return tuple(shapes)
+
+
 def _cmd_generate(args: argparse.Namespace) -> int:
     from tinymind.model.backends.transformer import TransformerBackend
     from tinymind.model.tm_export import TmExportError
@@ -251,6 +299,8 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
 
 
 def _cmd_benchmark(args: argparse.Namespace) -> int:
+    if args.suite == "train-step":
+        return _cmd_benchmark_train_step(args)
     if args.suite != "tools":
         print(f"error: only the 'tools' benchmark layer is populated in this delivery "
              f"(see benchmarks/{args.suite}/README.md) — see STATUS.md", file=sys.stderr)
@@ -306,6 +356,15 @@ def build_parser() -> argparse.ArgumentParser:
                                            "or a path to a .tm file for an exact parameter count")
     p2.set_defaults(func=_cmd_model_info)
 
+    p = sub.add_parser("tokenizer", help="tokenizer commands")
+    tok_sub = p.add_subparsers(dest="tokenizer_command", required=True)
+    p2 = tok_sub.add_parser("train-bpe", help="train a byte-level BPE tokenizer from a corpus and write tokenizer.json")
+    p2.add_argument("--input", required=True, nargs="+",
+                    help="corpus: text/JSONL file(s) or a directory of them")
+    p2.add_argument("--vocab-size", type=int, required=True, dest="vocab_size")
+    p2.add_argument("--output", required=True, help="path to write tokenizer.json to")
+    p2.set_defaults(func=_cmd_tokenizer_train_bpe)
+
     p = sub.add_parser("generate", help="generate text from a trained .tm model (brief section 30)")
     p.add_argument("--model", required=True, help="path to a .tm model file")
     p.add_argument("--prompt", required=True)
@@ -328,8 +387,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("model_path")
     p.set_defaults(func=_cmd_inspect)
 
-    p = sub.add_parser("benchmark", help="run a benchmark suite")
-    p.add_argument("suite", choices=["capability", "tools", "reasoning", "structured", "mobile", "performance"])
+    p = sub.add_parser("benchmark", help="run a benchmark suite, or the 50M train-step memory/throughput preflight")
+    p.add_argument("suite", choices=["capability", "tools", "reasoning", "structured", "mobile", "performance", "train-step"])
+    p.add_argument("--config", default="50m", help="profile for 'train-step' (default: 50m)")
+    p.add_argument("--seq-len", type=int, default=512, dest="seq_len", help="'train-step' sequence length (default: 512)")
+    p.add_argument("--shapes", default=None, help="'train-step' shapes, e.g. '1x8,1x16,1x32' (batch x accumulation)")
+    p.add_argument("--seed", type=int, default=0, help="'train-step' RNG seed")
+    p.add_argument("--no-warmup", action="store_true", dest="no_warmup", help="'train-step': skip the warm-up micro-step")
     p.set_defaults(func=_cmd_benchmark)
 
     p = sub.add_parser("serve", help="start the local HTTP API server")

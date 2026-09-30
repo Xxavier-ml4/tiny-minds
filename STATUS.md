@@ -407,3 +407,61 @@ workflow/CI-related tests, old and new) is 94 tests, ~53s.
 actual GitHub runner (no network in this sandbox); the argument-copying gap
 found in the earlier demonstration is not fixed; no production-budget stage
 run has happened.
+
+## Phase 3C — TinyMind v2: the 50M capability curriculum
+
+This phase adds a second, larger pipeline **alongside** the v1 three-stage
+pipeline above, which is unchanged. Full design and contracts:
+`docs/training/tinymind-v2-50m-plan.md`. Everything below is a pure function of
+`(stage, seed, scale)` plus `configs/50m.yaml` and `configs/curriculum_v2.json`.
+
+**The same environment constraint still applies**: no PyTorch/JAX/TF, no
+network, no GPU, and `pytest` is not installed in this authoring sandbox. The
+v2 tests are written as `unittest.TestCase` classes (the repo's existing
+convention), so they run under both `pytest` and stdlib `python -m unittest` —
+which is how they were verified here. The 50M model *does* run in pure NumPy
+(construction ~1s; one optimizer step in seconds), so the parameter count,
+preflight, and training machinery below produce **real** numbers, not mocks.
+What has **not** happened here is a full 345M-token production run — that needs
+a runner (see limitations).
+
+| Piece | Status | Tests |
+|---|---|---|
+| 50M profile `configs/50m.yaml` — exactly 50,370,624 params | [x] | `tests/model/test_50m_profile.py` (5) |
+| BPE tokenizer training + `tokenizer train-bpe` (deterministic, round-trips, reconstructs from JSON) | [x] | `tests/model/test_bpe_tokenizer_v2.py` (4) |
+| Seven-stage curriculum `curriculum_v2.py` + `configs/curriculum_v2.json` (mixtures sum to 1, replay configurable, 345M total) | [x] | `tests/training/test_curriculum_v2.py` (8) |
+| Verified reasoning/math (Python-recomputed, tamper-detected) | [x] | `test_curriculum_v2.py`, `test_stage_transitions_v2.py` |
+| Independent held-out tests + contamination control | [x] | `test_curriculum_v2.py`, `test_stage_transitions_v2.py` (4) |
+| Token-budget training (`--target-tokens`, `token_accounting`, runtime-only identity) | [x] | `tests/training/test_token_budget.py` (4) |
+| 50M memory/throughput preflight `benchmark train-step` | [x] | `tests/training/test_benchmark_50m.py` (3) |
+| v2 eleven-category eval report (no composite, metrics preserved) | [x] | `tests/test_suite_v2.py` (6) |
+| Stage gates 1–6 (regression floors; stage 7 none) + rejection | [x] | `tests/training/test_stage_gates_v2.py` (5) |
+| External dataset manifest + `prepare-external` (hermetic, deterministic) | [x] | `test_stage_transitions_v2.py` (3) |
+| `train-50m.yml` workflow (7 stages, preflight, gates, token budget) | [x] static | `tests/ci/test_train_50m_workflow.py` (7) |
+| Token-budget → resume → init-from stage hand-off | [x] demonstrated | shown end-to-end on the fast profile (see below) |
+| Full 345M-token 50M production run on a runner | [ ] | not started (no GPU/network/time here) |
+| 16k BPE inside the native C++ runtime | [ ] | not started (native runtime targets the v1 byte tokenizer) |
+
+**Demonstrated end-to-end (fast profile, to exercise the machinery cheaply)**:
+a token-budget stage stopping at its budget-derived step limit while incomplete;
+resuming from that checkpoint to completion; and `init-from`-ing the completed
+checkpoint into the next stage with a fresh optimizer and the parent stage +
+manifest hash recorded as lineage. This is the exact v2 machinery; only the
+model size and dataset differ from a real 50M run.
+
+**What is honestly still designed-only**: no production-budget 50M run has
+executed here, so the *quality* the curriculum produces is unknown and the gate
+thresholds are provisional floors set before any run (tighten after the first).
+The synthetic generators demonstrate capabilities and generalisation across
+held-out values, not broad world knowledge — real breadth depends on supplying a
+real corpus through the dataset manifest (the manifest and hermetic preparation
+step exist; a real corpus is not committed). The `train-50m.yml` workflow is
+verified structurally (YAML + asserts), not by a runner execution.
+
+**Test-suite note**: the full stdlib `unittest` discovery over `tests/` runs
+613 tests. All pass except one pre-existing CI test
+(`tests/ci/test_stage_io.py::...interrupted_stage`) that asserts an artifact
+name whose suffix is a **git commit SHA**; this authoring sandbox is not a git
+checkout, so the fallback suffix contains a hyphen and the test's `rsplit("-",1)`
+splits differently. It passes in a normal git checkout and is unrelated to the
+v2 changes (which touch none of `stage_io.py`, that test, or artifact naming).

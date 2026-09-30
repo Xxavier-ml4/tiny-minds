@@ -1,0 +1,67 @@
+{
+  "note": "TinyMind v2 stage4 objective (instruction + dialogue). Evaluated by the trainer on the LIVE model at every evaluation checkpoint; the stage completes only when every measurement passes after the minimum token budget and nothing regressed. The validation-loss ceiling mirrors this stage's promotion gate so the two cannot disagree on the same number; the capability-specific accuracy floors stay in the promotion gate (configs/stages_v2/stage4.gate.json), which runs on the held-out TEST split once the stage is complete. 'retain' re-measures stage1's language checks with stage1's own prompts and thresholds on this stage's live model, and compares them with the previous checkpoint and with stage1 at promotion, so this stage cannot pass while it has lost language. Natural held-out text (corpus replay) is compared across stages when the held-out split is the same. Floors set before the first full-budget pass; tighten after. Model-size independent: other sizes use other thresholds (--objective-dir), not other code.",
+  "stage": "stage4",
+  "retain": [
+    "stage1"
+  ],
+  "generation": {
+    "max_new_tokens": 64,
+    "prompts": [
+      "The sun rose over the",
+      "She opened the door and",
+      "In the morning, the children",
+      "He picked up the book and began to",
+      "After a long day at work, she",
+      "The scientist explained that"
+    ]
+  },
+  "measurements": [
+    {
+      "name": "validation_loss",
+      "metric": "loss.val_loss",
+      "max": 1.1
+    },
+    {
+      "name": "natural_text_bits_per_byte",
+      "metric": "loss.text_val_bpb",
+      "max": 2.2
+    },
+    {
+      "name": "generation_non_empty",
+      "metric": "generation.non_empty_rate",
+      "min": 0.9
+    },
+    {
+      "name": "generation_not_repetitive",
+      "metric": "generation.mean_repetition",
+      "max": 0.4
+    },
+    {
+      "name": "generation_diversity",
+      "metric": "generation.mean_distinct_2",
+      "min": 0.4
+    },
+    {
+      "name": "grammar_word_like",
+      "metric": "grammar.word_like_fraction",
+      "min": 0.7
+    }
+  ],
+  "regression": {
+    "max_val_loss_increase": 0.2,
+    "checks": [
+      {
+        "metric": "loss.text_val_bpb",
+        "max_increase": 0.1
+      },
+      {
+        "metric": "generation.mean_repetition",
+        "max_increase": 0.12
+      },
+      {
+        "metric": "grammar.word_like_fraction",
+        "max_decrease": 0.12
+      }
+    ]
+  }
+}

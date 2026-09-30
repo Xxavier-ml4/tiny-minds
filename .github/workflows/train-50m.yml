@@ -1,0 +1,544 @@
+# Seven-stage CPU training of the 50M TinyMind v2 model on GitHub-hosted runners (brief section 12).
+#
+# Same design as train-stage.yml (the 1.2M/3.49M pipeline): one parameterised workflow runs any of the
+# seven v2 stages; a job starts on a clean machine, so state moves between jobs ONLY as a GitHub artifact
+# (a "stage bundle", tinymind/ci/stage_io.py). This run downloads the artifact named in `resume_artifact`,
+# verifies it (checksums, checkpoint integrity, identity, model config, optional pinned manifest hash, and
+# the parent stage's promotion gate) BEFORE trusting it, trains the stage, then uploads a new bundle whose
+# name says exactly what it contains.
+#
+# OBJECTIVE-DRIVEN STAGES. A stage is complete when its OBJECTIVE is met, never because its token budget
+# ran out. The budget (configs/curriculum_v2.json) is the MINIMUM training chunk; at every evaluation
+# checkpoint the trainer measures the stage objective (configs/stages_v2/<stage>.objective.json: held-out
+# loss, natural-text bits per byte, generation quality on fixed prompts, grammar checks, retained earlier
+# capabilities, regression against the previous checkpoint) and writes a report with the raw generations.
+# Every report is published to this job's summary and uploaded as an artifact. Stop reasons:
+#   gate_passed   objective met            -> stage complete -> next stage (init-from, after its promotion gate)
+#   gate_failed   budget used, not met     -> stage INCOMPLETE -> run the SAME stage again: mode continue
+#                                             extends the budget by continue_extend_tokens
+#   time_budget   this job ran out of time -> stage INCOMPLETE -> run the SAME stage again: mode resume
+# A complete stage whose promotion gate fails is reopened (mode continue) when the same stage is re-run
+# with its artifact. check-incoming picks the mode automatically (resume_mode=auto).
+#
+# STAGE-1 DATA. Stage 1 trains primarily on a REAL natural-text corpus prepared from the dataset
+# manifest's local/url entries (`data prepare-corpus`: sharded streaming, checksums, dedup, deterministic
+# splits, decontamination, provenance), with the synthetic generators as a supplement. The default manifest
+# only holds a small committed sample, which the Stage-1 objective rejects as too small: for a real run set
+# dataset_manifest to a manifest with real shards (datasets/v2/corpus.manifest.example.json) and
+# allow_download=true.
+#
+# What is different from train-stage.yml, and why:
+#   * profile defaults to 50m (the 50,370,624-parameter model).
+#   * a 50M memory/throughput PREFLIGHT (brief section 7) runs before training and fails fast if the
+#     runner cannot even complete one optimizer step.
+#   * data is the v2 curriculum: an external/synthetic dataset-preparation step (brief section 13) then
+#     `data build-curriculum-v2`, and the per-stage TOKEN BUDGET and learning rate are read from
+#     configs/curriculum_v2.json (brief sections 4-6) and passed to the trainer as --target-tokens.
+#
+#   Stage 1 from scratch:      stage=stage1, resume_artifact empty
+#   Stage 1 needs more time:   stage=stage1, resume_artifact=<the stage1 bundle>, resume_mode=auto  -> resume
+#   Stage 1 objective not met: stage=stage1, resume_artifact=<the gate_failed stage1 bundle>        -> continue
+#   Stage 2 from stage 1:      stage=stage2, resume_artifact=<the COMPLETE stage1 bundle>            -> init-from
+#   ... through stage7. Stage 7 is final and has no promotion gate.
+#
+# No secrets are embedded. Permissions: `contents: read`, and `actions: read` so this workflow may download
+# an artifact produced by another run of the same repository (via GITHUB_TOKEN). Publishing is optional,
+# off by default, and never fails the run.
+name: train-50m
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "v2 stage to run"
+        required: true
+        type: choice
+        options: [stage1, stage2, stage3, stage4, stage5, stage6, stage7]
+      config:
+        description: "Model profile (default: 50m, the 50,370,624-parameter model)"
+        required: true
+        default: "50m"
+        type: string
+      resume_artifact:
+        description: "Name of the previous stage bundle to continue from (empty = start from scratch)"
+        required: false
+        default: ""
+        type: string
+      resume_run_id:
+        description: "Run id that produced resume_artifact (empty = find the newest artifact with that name)"
+        required: false
+        default: ""
+        type: string
+      resume_mode:
+        description: "auto | resume (same stage, budget left) | continue (same stage, larger budget) | init-from (next stage, needs a completed stage)"
+        required: false
+        default: auto
+        type: choice
+        options: [auto, resume, continue, init-from]
+      expect_manifest_sha256:
+        description: "Optional: pin the incoming checkpoint manifest's SHA-256 (from the previous run's summary)"
+        required: false
+        default: ""
+        type: string
+      max_hours:
+        description: "Training wall-clock budget in hours (0.05-5.5). The trainer stops itself with a checkpoint before it."
+        required: false
+        default: "5"
+        type: string
+      target_tokens:
+        description: "Override the stage token budget (0 = use configs/curriculum_v2.json for this stage)"
+        required: false
+        default: "0"
+        type: string
+      dataset:
+        description: "'curriculum' = generate this stage's v2 curriculum, or a repo directory with train_*.jsonl / val.jsonl / eval.jsonl"
+        required: false
+        default: curriculum
+        type: string
+      dataset_manifest:
+        description: "Dataset manifest: real corpus (local/url entries) + synthetic supplements; empty = skip preparation"
+        required: false
+        default: datasets/v2/manifest.json
+        type: string
+      allow_download:
+        description: "Let data preparation download the manifest's http(s) corpus shards (needs network; off = hermetic)"
+        required: false
+        default: false
+        type: boolean
+      continue_extend_tokens:
+        description: "Mode continue: extra training tokens beyond the previous budget (0 = a quarter of the stage budget)"
+        required: false
+        default: "0"
+        type: string
+      objective_gate:
+        description: "Complete the stage only when its objective is met (off = budget completes it; engineering runs only)"
+        required: false
+        default: true
+        type: boolean
+      data_scale:
+        description: "Curriculum size multiplier (must be identical in every job of a stage)"
+        required: false
+        default: "1.0"
+        type: string
+      seed:
+        description: "Seed (must be identical in every job of a stage)"
+        required: false
+        default: "0"
+        type: string
+      skip_gate:
+        description: "Skip the parent stage's promotion gate (engineering runs only)"
+        required: false
+        default: false
+        type: boolean
+      run_preflight:
+        description: "Run the 50M memory/throughput preflight before training (brief section 7)"
+        required: false
+        default: true
+        type: boolean
+      publish:
+        description: "After a COMPLETE stage, also publish the model to a GitHub Release (and Hugging Face if HF_TOKEN is set)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+# An explicit `shell: bash` makes GitHub run every step with `bash --noprofile --norc -eo pipefail`. The implicit
+# default is `bash -e` WITHOUT pipefail, under which `failing-command | tee file` succeeds and the job carries on
+# (e.g. after a failed corpus preparation or preflight).
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: train50m-${{ inputs.config }}-${{ inputs.stage }}
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    # Hard backstop only: the trainer enforces its own budget (max_hours) and exits cleanly first.
+    timeout-minutes: 355
+    env:
+      # Inputs are passed through the environment, never interpolated into shell text (script-injection safe).
+      STAGE: ${{ inputs.stage }}
+      PROFILE: ${{ inputs.config }}
+      SEED: ${{ inputs.seed }}
+      DATA_SCALE: ${{ inputs.data_scale }}
+      DATASET: ${{ inputs.dataset }}
+      DATASET_MANIFEST: ${{ inputs.dataset_manifest }}
+      MAX_HOURS: ${{ inputs.max_hours }}
+      TARGET_TOKENS_IN: ${{ inputs.target_tokens }}
+      RESUME_MODE: ${{ inputs.resume_mode }}
+      ALLOW_DOWNLOAD: ${{ inputs.allow_download }}
+      EXTEND_TOKENS_IN: ${{ inputs.continue_extend_tokens }}
+      OBJECTIVE_GATE: ${{ inputs.objective_gate }}
+    outputs:
+      artifact_name: ${{ steps.bundle.outputs.artifact_name }}
+      stage_complete: ${{ steps.bundle.outputs.stage_complete }}
+      stop_reason: ${{ steps.bundle.outputs.stop_reason }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install (NumPy + PyYAML only; no deep-learning framework)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Confirm the profile really is the 50M model
+        run: |
+          python - <<'PY'
+          import json, subprocess, os
+          out = subprocess.check_output(["python","-m","tinymind.cli","model","info",os.environ["PROFILE"]]).decode()
+          print(out)
+          # The 50m profile must report the exact parameter count the brief fixes (section 1).
+          if os.environ["PROFILE"] == "50m" and "50,370,624" not in out and "50370624" not in out:
+              raise SystemExit("::error::50m profile did not report 50,370,624 parameters")
+          PY
+
+      - name: Check the time budget
+        id: budget
+        run: |
+          # When the budget clock starts: the Train step subtracts everything spent between here and training.
+          echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+          python -m tinymind.ci.stage_io runtime --max-hours "$MAX_HOURS"
+
+      - name: Probe the runner (environment, BLAS, thread count)
+        run: python benchmarks/runner_probe.py --profile "$PROFILE" --out runner_profile.json --github-env "$GITHUB_ENV"
+
+      - name: 50M memory/throughput preflight (brief section 7)
+        if: ${{ inputs.run_preflight }}
+        run: |
+          # Fails the run before any training if the runner cannot complete one optimizer step at 50M.
+          python -m tinymind.cli benchmark train-step --config "$PROFILE" --shapes "1x8,1x16" --seq-len 512 \
+            | tee preflight_50m.json
+
+      - name: Read the stage token budget and learning rate (from configs/curriculum_v2.json)
+        id: budgetplan
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json, os, subprocess
+          info = json.loads(subprocess.check_output(
+              ["python","-m","tinymind.cli","data","curriculum-v2-info","--stage",os.environ["STAGE"]]).decode())
+          override = int(os.environ.get("TARGET_TOKENS_IN","0") or "0")
+          target = override if override > 0 else int(info["target_tokens"])
+          print(f"TARGET_TOKENS={target}")
+          # Mode continue: how many tokens beyond the previous budget one more chunk trains.
+          extend = int(os.environ.get("EXTEND_TOKENS_IN","0") or "0")
+          print(f"EXTEND_TOKENS={extend if extend > 0 else max(1, target // 4)}")
+          if info.get("learning_rate") is not None:
+              print(f"STAGE_LR={info['learning_rate']}")
+          if info.get("min_learning_rate") is not None:
+              print(f"STAGE_MIN_LR={info['min_learning_rate']}")
+          PY
+
+      - name: Prepare data (real corpus + v2 curriculum)
+        env:
+          # Optional bearer tokens for PRIVATE corpus shards (a manifest entry names one via "auth_env"). Exposed to
+          # this data-preparation step only, never to training; empty when the repository secret is not set.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          CORPUS_TOKEN: ${{ secrets.CORPUS_TOKEN }}
+        run: |
+          if [ "$DATASET" = "curriculum" ]; then
+            corpus_args=()
+            if [ -n "$DATASET_MANIFEST" ]; then
+              # Hermetic by default: http(s) shards are refused unless allow_download is on. Both commands share one
+              # download cache, so a shard is fetched once.
+              dl=(--cache-dir data/download_cache)
+              if [ "$ALLOW_DOWNLOAD" = "true" ]; then dl+=(--allow-download); fi
+              # Every manifest entry materialised (synthetic supplements + real text), e.g. for the tokenizer.
+              python -m tinymind.cli data prepare-external --manifest "$DATASET_MANIFEST" --out data/external "${dl[@]}"
+              # The real pretraining corpus from the manifest's local/url entries: sharded streaming, sha256
+              # checks, dedup, deterministic train/val/test split, decontamination, provenance. Its split uses the
+              # corpus's own fixed seed, NOT the training seed: every stage's job must derive the same corpus split,
+              # natural held-out text and tokenizer (a different split would change the tokenizer and break init-from).
+              python -m tinymind.cli data prepare-corpus --manifest "$DATASET_MANIFEST" --out data/corpus \
+                "${dl[@]}" | tee corpus_prepare.json
+              corpus_args=(--corpus data/corpus)
+            fi
+            python -m tinymind.cli data build-curriculum-v2 --stage "$STAGE" --out data --seed "$SEED" \
+              --scale "$DATA_SCALE" "${corpus_args[@]}" | tee curriculum_build.json
+            echo "DATA_DIR=data" >> "$GITHUB_ENV"
+          else
+            echo "DATA_DIR=$DATASET" >> "$GITHUB_ENV"
+          fi
+
+      - name: Ensure the BPE tokenizer named by the profile exists (brief section 2)
+        # The 50m profile names a learned 16k BPE tokenizer (configs/50m.yaml -> tokenizer.path). If it
+        # is not committed, build it here from the prepared corpus. A subword vocabulary needs a real,
+        # diverse corpus: with real external data (allow_download) this reaches the profile's vocab_size;
+        # otherwise train-bpe stops below it and the run FAILS FAST — the correct signal that the corpus
+        # is too small for the requested vocabulary, rather than silently training a mismatched model.
+        run: |
+          read -r TOK_PATH VOCAB < <(python - <<'PY'
+          import os, yaml
+          cfgp = f"configs/{os.environ['PROFILE']}.yaml"
+          c = yaml.safe_load(open(cfgp))
+          tok = c.get("tokenizer") or {}
+          p = tok.get("path") or ""
+          if p:
+              p = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(cfgp)), p))
+          vocab = (c.get("model") or c).get("vocab_size", "")
+          print(p, vocab)
+          PY
+          )
+          if [ -n "$TOK_PATH" ] && [ ! -f "$TOK_PATH" ]; then
+            # Deterministic AND representative tokenizer input: a seeded uniform sample over EVERY shard and
+            # source of the real corpus's TRAIN split (never its held-out splits), plus a sample of the synthetic
+            # supplements (tinymind data tokenizer-sample; recorded in sample_manifest.json). The seed is fixed,
+            # not the training seed, so every stage's job derives the same sample and hence the same tokenizer.
+            # Size: pure-Python BPE training cost grows with the sample's unique words; for a real run, train
+            # the tokenizer once and commit it to the profile's tokenizer path (this step is then skipped).
+            sample=()
+            if [ -f data/corpus/corpus_manifest.json ]; then sample+=(--corpus data/corpus); fi
+            if [ -f data/external/prepared_manifest.json ]; then sample+=(--external data/external); fi
+            if [ ${#sample[@]} -gt 0 ]; then
+              python -m tinymind.cli data tokenizer-sample "${sample[@]}" --out data/tokenizer_input --seed 0
+              inputs=(data/tokenizer_input)
+            else
+              inputs=("$DATA_DIR")
+            fi
+            mkdir -p "$(dirname "$TOK_PATH")"
+            echo "Training a ${VOCAB}-token BPE tokenizer from ${inputs[*]} -> ${TOK_PATH}"
+            python -m tinymind.cli tokenizer train-bpe --input "${inputs[@]}" --vocab-size "$VOCAB" --output "$TOK_PATH"
+          else
+            echo "Tokenizer already present or profile uses a byte tokenizer; nothing to build."
+          fi
+
+      - name: Contamination control — held-out prompts must not appear in training (brief section 11)
+        run: |
+          if [ -f "$DATA_DIR/eval.jsonl" ]; then
+            python -m tinymind.cli data check-contamination --train "$DATA_DIR"/train_*.jsonl --eval "$DATA_DIR/eval.jsonl"
+          else
+            echo "::warning::no eval.jsonl in $DATA_DIR; skipping the contamination check"
+          fi
+
+      - name: Locate the previous artifact
+        if: ${{ inputs.resume_artifact != '' }}
+        id: locate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT: ${{ inputs.resume_artifact }}
+          RUN_ID_IN: ${{ inputs.resume_run_id }}
+        run: |
+          if [ -n "$RUN_ID_IN" ]; then
+            run_id="$RUN_ID_IN"
+          else
+            run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=${ARTIFACT}&per_page=1" --jq '.artifacts[0].workflow_run.id')
+          fi
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error::no artifact named '$ARTIFACT' found in $GITHUB_REPOSITORY"
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download the previous artifact
+        if: ${{ inputs.resume_artifact != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.resume_artifact }}
+          run-id: ${{ steps.locate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          path: incoming
+
+      - name: Verify the incoming artifact before trusting it (identity + parent gate)
+        if: ${{ inputs.resume_artifact != '' }}
+        id: incoming
+        env:
+          PIN: ${{ inputs.expect_manifest_sha256 }}
+          SKIP_GATE: ${{ inputs.skip_gate }}
+        run: |
+          args=(--dir incoming --stage "$STAGE" --profile-config "configs/${PROFILE}.yaml" --mode "$RESUME_MODE" --gate-dir configs/stages_v2)
+          if [ -n "$PIN" ]; then args+=(--expect-manifest-sha256 "$PIN"); fi
+          if [ "$SKIP_GATE" = "true" ]; then args+=(--skip-gate); fi
+          python -m tinymind.ci.stage_io check-incoming "${args[@]}"
+
+      - name: Train (objective-driven stage; the token budget is the minimum chunk)
+        id: train
+        env:
+          RUNTIME_SECONDS: ${{ steps.budget.outputs.seconds }}
+          MODE: ${{ steps.incoming.outputs.mode }}
+          REOPEN: ${{ steps.incoming.outputs.reopen }}
+          INCOMING_CKPT: ${{ steps.incoming.outputs.checkpoint }}
+          PARENT_TARGET_TOKENS: ${{ steps.incoming.outputs.parent_target_tokens }}
+          PARENT_BUDGET_TOKENS: ${{ steps.incoming.outputs.parent_budget_tokens }}
+        run: |
+          # The trainer's wall-clock budget minus what this job already spent on data preparation and tokenizer
+          # training, so it checkpoints, exports and exits before the job's hard timeout however long those took.
+          elapsed=$(( $(date +%s) - JOB_START_EPOCH ))
+          runtime=$(( RUNTIME_SECONDS - elapsed ))
+          if [ "$runtime" -lt 600 ]; then
+            echo "::error::only ${runtime}s of the ${RUNTIME_SECONDS}s budget remain after ${elapsed}s of preparation; raise max_hours or commit the tokenizer so it is not retrained"
+            exit 1
+          fi
+          echo "Training wall-clock budget: ${runtime}s (${elapsed}s already used by setup and data preparation)"
+          target="$TARGET_TOKENS"
+          case "$MODE" in
+            # an exact resume keeps the interrupted run's horizon (which a continued run may have extended)
+            resume)   if [ "${PARENT_TARGET_TOKENS:-0}" -gt 0 ]; then target="$PARENT_TARGET_TOKENS"; fi ;;
+            # objective not met at the budget: one more chunk beyond the budget already trained
+            continue) target=$(( ${PARENT_BUDGET_TOKENS:-0} + EXTEND_TOKENS )) ;;
+          esac
+          args=(--config "$PROFILE" --dataset "$DATA_DIR" --output out --stage "$STAGE" --seed "$SEED"
+                --max-steps 0 --target-tokens "$target"
+                --max-runtime "$runtime" --safety-margin 300)
+          if [ -n "${STAGE_LR:-}" ]; then args+=(--learning-rate "$STAGE_LR"); fi
+          if [ -n "${STAGE_MIN_LR:-}" ]; then args+=(--min-learning-rate "$STAGE_MIN_LR"); fi
+          if [ "$OBJECTIVE_GATE" = "false" ]; then
+            echo "::warning::objective_gate is off: the token budget completes this stage (engineering run)"
+            args+=(--no-objective)
+          fi
+          case "$MODE" in
+            resume)    args+=(--resume "$INCOMING_CKPT") ;;
+            continue)  args+=(--continue-stage "$INCOMING_CKPT")
+                       if [ "$REOPEN" = "true" ]; then args+=(--reopen-stage); fi ;;
+            init-from) args+=(--init-from "$INCOMING_CKPT") ;;
+          esac
+          python -m tinymind.cli train "${args[@]}"
+
+      - name: Read the result
+        id: result
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          s = json.load(open("out/training_summary.json"))
+          print(f"stage_complete={str(s['stage_complete']).lower()}")
+          print(f"stop_reason={s['stop_reason']}")
+          print(f"objective_met={str(s.get('objective', {}).get('objective_met')).lower()}")
+          print(f"final_step={s['final_step']}")
+          ta = s.get("token_accounting", {})
+          print(f"training_tokens={ta.get('total_training_tokens', 0)}")
+          PY
+
+      - name: Stage objective reports -> job summary (every checkpoint, raw generations verbatim)
+        if: ${{ always() }}
+        run: |
+          if [ -f out/objective_reports/latest.json ]; then
+            python -m tinymind.cli objective-report --run out --github-summary --out out/objective_summary.md > /dev/null
+          else
+            echo "No stage-objective reports in this run (objective_gate off, or training did not reach a checkpoint)."
+          fi
+
+      - name: Upload the stage objective reports (JSON + Markdown per evaluated checkpoint)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: objective-reports-${{ inputs.stage }}-run${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/objective_reports
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Held-out evaluation (only when the stage is complete)
+        if: ${{ steps.result.outputs.stage_complete == 'true' }}
+        run: |
+          if [ -f "$DATA_DIR/eval.jsonl" ]; then
+            python -m tinymind.cli eval --package out/export --eval "$DATA_DIR/eval.jsonl" \
+              --val "$DATA_DIR/val.jsonl" --out out/eval_results.json
+          else
+            echo "::warning::no eval.jsonl in $DATA_DIR; skipping the capability suite"
+          fi
+
+      - name: Promotion gate preview (what the next stage's check will decide)
+        if: ${{ steps.result.outputs.stage_complete == 'true' }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from tinymind.training.gate import evaluate_gate
+          stage = os.environ["STAGE"]
+          gate = Path(f"configs/stages_v2/{stage}.gate.json")
+          lines = [f"### Promotion gate preview: {stage}", ""]
+          if not gate.is_file():
+              lines.append(f"{stage} has no promotion gate (terminal stage).")
+          else:
+              ev = Path("out/eval_results.json")
+              verdict = evaluate_gate(json.loads(gate.read_text()),
+                                      summary=json.loads(Path("out/training_summary.json").read_text()),
+                                      eval_results=json.loads(ev.read_text()) if ev.is_file() else None)
+              lines += ["| check | value | requirement | result |", "|---|---|---|---|"]
+              lines += [f"| {c['check']} | {c['value']} | {c['requirement']} | {'pass' if c['ok'] else 'FAIL'} |"
+                        for c in verdict["checks"]]
+              lines += ["", "Passed: the next stage can start from this artifact (init-from)." if verdict["passed"] else
+                        f"FAILED: the objective was met but the promotion gate was not; re-run {stage} with this "
+                        "artifact to reopen and continue it (mode continue)."]
+          text = "\n".join(lines) + "\n"
+          print(text)
+          target = os.environ.get("GITHUB_STEP_SUMMARY")
+          if target:
+              with open(target, "a") as handle:
+                  handle.write(text)
+          PY
+
+      - name: Bundle
+        id: bundle
+        run: |
+          if [ -f data/tokenizer_input/sample_manifest.json ]; then  # what the tokenizer was trained on (this job)
+            mkdir -p out/data_provenance
+            cp data/tokenizer_input/sample_manifest.json out/data_provenance/tokenizer_sample_manifest.json
+          fi
+          args=(--run out --dest bundle --profile "$PROFILE" --stage "$STAGE" --probe runner_profile.json)
+          if [ -f out/eval_results.json ]; then args+=(--eval out/eval_results.json); fi
+          python -m tinymind.ci.stage_io bundle "${args[@]}"
+
+      - name: Verify the bundle we are about to upload
+        run: python -m tinymind.cli verify-checkpoint bundle/checkpoints && python -m tinymind.cli verify-package bundle/export
+
+      - name: Upload the stage bundle (checkpoints + inference package + summary)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bundle.outputs.artifact_name }}
+          path: bundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload the inference package alone (the 50M model)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bundle.outputs.artifact_name }}-model
+          path: bundle/export
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Job summary
+        run: python -m tinymind.ci.stage_io summary --bundle bundle
+
+  publish:
+    # Optional. Needs no credentials to be skipped or to fail harmlessly. Only a COMPLETE stage (objective met)
+    # is ever published; a stage that merely used up its token budget is not.
+    needs: train
+    if: ${{ inputs.publish && needs.train.outputs.stage_complete == 'true' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      ARTIFACT: ${{ needs.train.outputs.artifact_name }}
+      STAGE: ${{ inputs.stage }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.train.outputs.artifact_name }}-model
+          path: model
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tar -czf "${ARTIFACT}-model.tar.gz" -C model .
+          gh release create "model-50m-${STAGE}-${GITHUB_RUN_ID}" "${ARTIFACT}-model.tar.gz" --repo "$GITHUB_REPOSITORY" \
+            --title "TinyMind 50M ${STAGE} (${ARTIFACT})" --notes "Inference package from workflow run ${GITHUB_RUN_ID}." \
+            || echo "::warning::could not create the release (missing permission?); the workflow artifact is unaffected"
+      - name: Hugging Face (only when the HF_TOKEN secret is configured)
+        if: ${{ env.HF_TOKEN != '' }}
+        run: |
+          python -m pip install --quiet huggingface_hub
+          python -m tinymind.ci.publish_hf --folder model --name "$ARTIFACT" \
+            || echo "::warning::Hugging Face upload failed; the workflow artifact is unaffected"

@@ -1,0 +1,109 @@
+{
+  "note": "TinyMind v2 STAGE-1 objective: language acquisition. Evaluated by the trainer on the LIVE model at every evaluation checkpoint; the stage completes only when EVERY measurement below passes after the minimum token budget (configs/curriculum_v2.json target_tokens), nothing regressed against the previous checkpoint, and never on validation loss alone. Measurements are independent: held-out loss on the curriculum validation split (ceiling mirrors stage1.gate.json so the stage cannot complete and then fail its own promotion gate on the same number); natural held-out text in BITS PER BYTE (tokenizer-independent: the same threshold means the same thing for a byte-level or a 16k-BPE model); greedy continuations of the fixed prompts below scored for emptiness, length, repetition/looping and diversity; grammar checks (real words from the training-corpus lexicon, sentence capitals, punctuation spacing); and a data requirement so language is never declared acquired from a placeholder corpus. Every number is a policy knob set as a FLOOR before the first full-budget pass (an untrained model scores ~8 bits/byte with a byte tokenizer, ~3.3 with 16k BPE, and emits looping byte noise); tighten after the first pass. Size-specific thresholds: copy this directory and pass --objective-dir (or set objective_dir in the model profile); the code does not change.",
+  "stage": "stage1",
+  "generation": {
+    "max_new_tokens": 64,
+    "prompts": [
+      "The sun rose over the",
+      "Once upon a time, there was a",
+      "She opened the door and",
+      "In the morning, the children",
+      "The old man walked slowly to the",
+      "Water flows from the mountains to the",
+      "He picked up the book and began to",
+      "After a long day at work, she"
+    ]
+  },
+  "measurements": [
+    {
+      "name": "validation_loss",
+      "metric": "loss.val_loss",
+      "max": 1.5
+    },
+    {
+      "name": "natural_text_bits_per_byte",
+      "metric": "loss.text_val_bpb",
+      "max": 2.0
+    },
+    {
+      "name": "generation_non_empty",
+      "metric": "generation.non_empty_rate",
+      "min": 0.9
+    },
+    {
+      "name": "generation_length",
+      "metric": "generation.mean_chars",
+      "min": 24
+    },
+    {
+      "name": "generation_not_repetitive",
+      "metric": "generation.mean_repetition",
+      "max": 0.35
+    },
+    {
+      "name": "generation_not_looping",
+      "metric": "generation.looping_rate",
+      "max": 0.25
+    },
+    {
+      "name": "generation_diversity",
+      "metric": "generation.mean_distinct_2",
+      "min": 0.5
+    },
+    {
+      "name": "grammar_word_like",
+      "metric": "grammar.word_like_fraction",
+      "min": 0.8
+    },
+    {
+      "name": "grammar_known_words",
+      "metric": "grammar.known_word_fraction",
+      "min": 0.75
+    },
+    {
+      "name": "grammar_letters",
+      "metric": "grammar.alpha_fraction",
+      "min": 0.9
+    },
+    {
+      "name": "grammar_sentence_capitals",
+      "metric": "grammar.sentence_start_capitalized",
+      "min": 0.6
+    },
+    {
+      "name": "grammar_punctuation_spacing",
+      "metric": "grammar.space_after_punctuation",
+      "min": 0.8
+    },
+    {
+      "name": "natural_text_in_training",
+      "metric": "data.natural_train_bytes",
+      "min": 20000000
+    }
+  ],
+  "regression": {
+    "max_val_loss_increase": 0.15,
+    "checks": [
+      {
+        "metric": "loss.text_val_bpb",
+        "max_increase": 0.05
+      },
+      {
+        "metric": "generation.mean_repetition",
+        "max_increase": 0.1
+      },
+      {
+        "metric": "generation.mean_distinct_2",
+        "max_decrease": 0.1
+      },
+      {
+        "metric": "grammar.word_like_fraction",
+        "max_decrease": 0.1
+      },
+      {
+        "metric": "grammar.known_word_fraction",
+        "max_decrease": 0.1
+      }
+    ]
+  }
+}

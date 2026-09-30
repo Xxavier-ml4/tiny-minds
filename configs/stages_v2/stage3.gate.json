@@ -1,0 +1,13 @@
+{
+  "note": "v2 50M curriculum promotion gate stage3 (knowledge+comprehension) -> stage4. Requires the new stage-3 skills (closed-book factual knowledge, span extraction, reading comprehension) above chance on the held-out v2 test split, plus a regression floor on stage-2 reasoning retained through replay. Floors set before the run; see docs/training/tinymind-v2-50m-plan.md.",
+  "expect_stage": "stage3",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.1},
+    {"metric": "eval.capabilities.knowledge.accuracy", "min": 0.20},
+    {"metric": "eval.capabilities.extraction.accuracy", "min": 0.25},
+    {"metric": "eval.capabilities.comprehension.accuracy", "min": 0.20},
+    {"metric": "eval.capabilities.reasoning.accuracy", "min": 0.15}
+  ]
+}

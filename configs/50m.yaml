@@ -1,13 +1,29 @@
-# ~52M parameters (approx_param_count). Smallest reference preset: aimed at
-# the low end of the brief's 50M-500M range, teacher/student experiments
-# aside. See docs/architecture/tinymind-design.md section 8.
+# TinyMind v2 reference profile: 50,370,624 parameters (exact;
+# tinymind.model.config.count_parameters). This is the capability-focused
+# ~50M model the v2 seven-stage plan trains (docs/training/tinymind-v2-50m-plan.md).
+#
+# The parameter count is pinned by tests/model/test_50m_profile.py and reported
+# by `tinymind model info 50m`. Geometry lives here and nowhere else: a
+# checkpoint stores this block and refuses to resume under a different one
+# (tinymind/model/config.py, tinymind/training/checkpoint.py).
+#
+# hidden 576 = 6 query heads x head_dim 96; 2 KV heads (GQA, kv_dim 192).
+# intermediate_size 1472 (SwiGLU) is the knob that sets the exact count:
+#   embed           16000 x 576                         =  9,216,000
+#   12 blocks       (2 norms + attention + SwiGLU MLP)  = 41,154,048
+#   final norm      576                                 =        576
+#                                                   total = 50,370,624
+# max_seq_len 1024 does not affect the count (RoPE, no learned positions);
+# it is the sequence length the RoPE cache and KV cache are sized for.
+profile: 50m
+
 model:
   hidden_size: 576
   num_layers: 12
   num_heads: 6
   num_kv_heads: 2
-  intermediate_size: 1536
-  max_seq_len: 2048
+  intermediate_size: 1472
+  max_seq_len: 1024
   vocab_size: 16000
   attention_type: gqa
   norm_type: rmsnorm
@@ -15,3 +31,42 @@ model:
   rope_theta: 10000.0
   tie_embeddings: true
   sliding_window: 0
+
+# The profile explicitly names its tokenizer (v2 requirement). vocab_size 16000
+# needs a learned tokenizer: train one with
+#   tinymind tokenizer train-bpe --input <corpus> --vocab-size 16000 --output tokenizers/v2-16k.json
+# `path` is resolved RELATIVE TO THIS YAML FILE (not the working directory), so
+# a run from any directory finds the same tokenizer. The byte tokenizer
+# (vocab 260) is not compatible with this profile; it is only a smoke fallback
+# for tiny_debug-style checks.
+tokenizer:
+  type: bpe
+  path: ../tokenizers/v2-16k.json
+
+# Default training knobs for a 50M stage. The seven-stage plan overrides
+# per-stage learning rate, token budget and mixture through the curriculum
+# manifest (configs/curriculum_v2.json); these are the shared defaults and the
+# batch/accumulation shape validated by the memory benchmark
+# (`tinymind benchmark train-step --config 50m`).
+training:
+  stage: stage1
+  seed: 0
+  learning_rate: 0.0006
+  min_learning_rate: 0.00006
+  scheduler: cosine
+  warmup_steps: 200
+  weight_decay: 0.1
+  gradient_clip_norm: 1.0
+  batch_size: 1
+  gradient_accumulation_steps: 16
+  max_seq_len: 1024
+  packing: true
+  overflow: drop
+  # Stage length is set by a token budget, not a fixed step count (v2). 0 here
+  # means "use the curriculum manifest's per-stage target_tokens"; a positive
+  # value pins it. See tinymind/training/config.py:TrainingConfig.target_tokens.
+  target_tokens: 0
+  epochs: 1
+  eval_interval: 200
+  checkpoint_interval: 200
+  log_interval: 20

@@ -1,0 +1,46 @@
+{
+  "note": "TinyMind v2 dataset manifest (brief section 13, revised for real pretraining data). Read by 'tinymind data prepare-external' (materialises every entry, e.g. as tokenizer-training input) and 'tinymind data prepare-corpus' (turns the 'local'/'url' entries into the deduplicated, split, decontaminated Stage-1 pretraining corpus with provenance), and by the train-50m workflow. This DEFAULT manifest is hermetic: it needs no network. Its only natural-text source is a small committed SAMPLE (datasets/v2/samples/, CC0) that lets the whole corpus pipeline run end to end offline; it is far too small to teach language, so the Stage-1 objective refuses to call language acquired from it (configs/stages_v2/stage1.objective.json requires data.natural_train_bytes >= 20 MB). For a real run, add 'url' or 'local' entries for a real corpus (see datasets/v2/corpus.manifest.example.json: sharded public URLs, per-shard sha256, auth_env for private data) and prepare with --allow-download. Prepared and downloaded corpora are never committed (see .gitignore). The synthetic entries are SUPPLEMENTAL, not the primary Stage-1 data.",
+  "version": 2,
+  "datasets": [
+    {
+      "source": "stage1_language_sample",
+      "type": "local",
+      "format": "text",
+      "shards": ["samples/stage1_language_sample.txt"],
+      "sha256": ["1589161676dec23f919b4832a7ef9a43e34415754586c59f51cf7c93052c29e1"],
+      "split": "train",
+      "weight": 1.0,
+      "chunk_chars": 400,
+      "min_chars": 32,
+      "group_chunks": 3,
+      "license": "CC0-1.0 (public domain dedication; written for this repository)",
+      "description": "Small committed natural-English sample (continuous prose) so the real-corpus pipeline runs offline; a real Stage-1 run adds a large corpus via 'url'/'local' entries."
+    },
+    {
+      "source": "stage1_language_synth",
+      "type": "synthetic",
+      "generator": "language",
+      "examples": 2000,
+      "seed": 0,
+      "split": "train",
+      "path": "prepared/stage1_language_synth.train.jsonl",
+      "weight": 1.0,
+      "supplemental": true,
+      "license": "generated (Apache-2.0, this repo)",
+      "description": "Deterministic synthetic language examples; SUPPLEMENTAL to the natural-text corpus, not the primary Stage-1 data."
+    },
+    {
+      "source": "stage3_knowledge_synth",
+      "type": "synthetic",
+      "generator": "knowledge",
+      "examples": 1500,
+      "seed": 0,
+      "split": "train",
+      "path": "prepared/stage3_knowledge_synth.train.jsonl",
+      "weight": 1.0,
+      "supplemental": true,
+      "license": "generated (Apache-2.0, this repo)",
+      "description": "Deterministic synthetic knowledge/definition examples; SUPPLEMENTAL to a real Stage-3 knowledge corpus."
+    }
+  ]
+}

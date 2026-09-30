@@ -8,12 +8,20 @@
     tinymind eval               tiny-model capability suite on a package
     tinymind eval-compare       side-by-side of two eval results (FP32 vs INT8, stage vs stage)
     tinymind stage-gate         promotion criteria between stages
+    tinymind objective-report   a run's per-checkpoint stage-objective reports (raw generations) as Markdown
     tinymind budget             mobile size budget of a profile
-    tinymind data build-curriculum | check-contamination | render
+    tinymind data build-curriculum | build-curriculum-v2 [--corpus] | prepare-external | prepare-corpus |
+                  check-contamination | render
 
-Exit status: 0 success (including a clean stop for the time budget or a signal:
-read ``training_summary.json`` ``stage_complete`` to tell), 1 configuration /
-data / checkpoint error, 3 training diverged (NaN/Inf; last good checkpoint kept).
+Training continues a checkpoint three ways: ``--resume`` (exact, same horizon),
+``--continue-stage`` (same stage, larger token budget: the objective was not met;
+with ``--reopen-stage`` also a complete stage whose promotion gate failed) and
+``--init-from`` (the next stage, from a complete one).
+
+Exit status: 0 success (including a clean stop for the time budget or a signal,
+and a stage whose objective is not met yet: read ``training_summary.json``
+``stage_complete`` / ``stop_reason`` to tell), 1 configuration / data /
+checkpoint error, 3 training diverged (NaN/Inf; last good checkpoint kept).
 """
 from __future__ import annotations
 
@@ -55,8 +63,86 @@ def load_profile(config_arg: str):
     if path.is_file():
         data = yaml.safe_load(path.read_text()) or {}
         model = ModelConfig.from_dict(data["model"]) if "model" in data else ModelConfig.from_dict(data)
-        return model, data.get("tokenizer"), dict(data.get("training", {}))
+        tok_spec = data.get("tokenizer")
+        # A tokenizer `path` in a profile is resolved RELATIVE TO THE YAML FILE,
+        # never the current working directory (brief section 2): a run launched
+        # from anywhere must load the same tokenizer the profile names. An
+        # absolute path is left untouched.
+        if isinstance(tok_spec, dict) and tok_spec.get("path"):
+            tp = Path(tok_spec["path"])
+            if not tp.is_absolute():
+                tok_spec = {**tok_spec, "path": str((path.resolve().parent / tp).resolve())}
+        return model, tok_spec, dict(data.get("training", {}))
     return load_preset(config_arg), None, {}
+
+
+def _profile_objective_dir(config_arg: str) -> str | None:
+    """A profile YAML may name its own objective thresholds (``objective_dir:``,
+    relative to the YAML) — how a 1B profile gets 1B thresholds without code."""
+    import yaml
+    path = Path(config_arg)
+    if not path.is_file():
+        path = Path(__file__).resolve().parents[1] / "configs" / f"{config_arg}.yaml"
+    if not path.is_file():
+        return None
+    value = (yaml.safe_load(path.read_text()) or {}).get("objective_dir")
+    if not value:
+        return None
+    p = Path(value)
+    return str(p if p.is_absolute() else (path.resolve().parent / p).resolve())
+
+
+def _objective_inputs(args: argparse.Namespace, data_dir: Path | None, stage: str):
+    """``(objective or None, objective-dir used, curriculum info)`` for a train
+    run. The objective is on for v2 curriculum data (curriculum.json says
+    "v2"), for a profile with ``objective_dir``, or with ``--objective-dir``; the
+    v1 pipeline and ad-hoc datasets keep the legacy budget-complete behaviour."""
+    from tinymind.training.objective import DEFAULT_OBJECTIVE_DIR, StageObjective, StageObjectiveError
+    curriculum: dict[str, Any] = {}
+    if data_dir is not None and (data_dir / "curriculum.json").is_file():
+        curriculum = json.loads((data_dir / "curriculum.json").read_text())
+    if args.no_objective:
+        return None, None, curriculum
+    explicit = args.objective_dir or _profile_objective_dir(args.config)
+    directory = explicit or (str(DEFAULT_OBJECTIVE_DIR) if curriculum.get("curriculum") == "v2" else None)
+    if directory is None:
+        return None, None, curriculum
+    objective = StageObjective.from_stage(stage, directory)
+    if objective is None and explicit:
+        raise StageObjectiveError(f"no {stage}.objective.json in {directory} (pass --no-objective to train without one)")
+    return objective, directory, curriculum
+
+
+def _count_natural_text_actually_trained(objective_data: dict[str, Any], curriculum: dict[str, Any], sources,
+                                         tokenizer, max_seq_len: int) -> None:
+    """``natural_train_bytes`` in curriculum.json counts the corpus as written; a chunk longer than max_seq_len is
+    dropped (or truncated) when rendered, and dropped text is not trained on. Scale the objective's data fact to the
+    corpus text that actually survived, so the Stage-1 data requirement cannot pass on text that is never seen."""
+    from tinymind.training.render import IGNORE_INDEX
+    corpus = next((s.dataset for s in sources if s.name == "corpus"), None)
+    listed = int((curriculum.get("corpus") or {}).get("train_bytes") or 0)
+    if corpus is None or not listed or not (corpus.dropped.get("too_long") or corpus.dropped.get("truncated")):
+        return
+    kept = sum(len(tokenizer.decode([int(t) for t in ex.labels[1:] if t != IGNORE_INDEX]).encode("utf-8"))
+               for ex in corpus.examples)
+    before = int(objective_data["natural_train_bytes"])
+    objective_data["natural_train_bytes"] = int(before * min(1.0, kept / listed))
+    print(f"[objective] WARNING: {corpus.dropped.get('too_long', 0)} corpus chunk(s) longer than max_seq_len "
+          f"{max_seq_len} were dropped and {corpus.dropped.get('truncated', 0)} truncated: the natural text actually "
+          f"trained is {objective_data['natural_train_bytes']:,} bytes, not {before:,}. Lower the manifest's chunk_chars "
+          "so chunks fit the model's context.", file=sys.stderr)
+
+
+def _write_data_provenance(output: Path, data_dir: Path, curriculum: dict[str, Any]) -> None:
+    """Copy what the stage trains on — its curriculum manifest and, with a real corpus attached, the corpus
+    provenance manifest (sources, licenses, redacted URLs, per-shard sha256, dataset-manifest hash) — into
+    ``<output>/data_provenance/``, which the stage bundle carries next to the checkpoints."""
+    import shutil
+    dest = output / "data_provenance"
+    dest.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(data_dir / "curriculum.json", dest / "curriculum.json")
+    if (curriculum.get("corpus") or {}).get("used") and (data_dir / "corpus_manifest.json").is_file():
+        shutil.copy2(data_dir / "corpus_manifest.json", dest / "corpus_manifest.json")
 
 
 def _parse_mixture(text: str | None) -> dict[str, float]:
@@ -104,12 +190,14 @@ def cmd_train(args: argparse.Namespace) -> int:
     from tinymind.training.data import DataSource, DatasetError, TokenizedDataset, read_jsonl, split_records
     from tinymind.training.engine import TrainingDivergedError, TrainingEngine
     from tinymind.training.exporter import package_exporter
+    from tinymind.training.objective import StageObjectiveError
 
     try:
         model_config, tok_spec, yaml_training = load_profile(args.config)
         tokenizer = build_tokenizer(tok_spec)
         overrides = {k: v for k, v in {
             "stage": args.stage, "epochs": args.epochs, "max_steps": args.max_steps, "seed": args.seed,
+            "target_tokens": args.target_tokens,
             "batch_size": args.batch_size, "gradient_accumulation_steps": args.gradient_accumulation,
             "learning_rate": args.learning_rate, "min_learning_rate": args.min_learning_rate, "warmup_steps": args.warmup_steps,
             "weight_decay": args.weight_decay, "checkpoint_interval": args.checkpoint_interval, "eval_interval": args.eval_interval,
@@ -160,17 +248,52 @@ def cmd_train(args: argparse.Namespace) -> int:
                    for name, recs in sources_raw.items()]
         validation = TokenizedDataset.from_records(val_records, renderer, config.max_seq_len, overflow=overflow, name="validation") \
             if val_records else None
-        for s in sources + ([DataSource("validation", validation)] if validation else []):
+        # Stage objective (objective-driven completion): thresholds from <objective dir>/<stage>.objective.json,
+        # natural held-out text from val_text.jsonl, the known-word lexicon, and facts about the training data.
+        objective, objective_dir, curriculum = _objective_inputs(args, data_dir, config.stage)
+        objective_validation = None
+        objective_data: dict[str, Any] = {}
+        lexicon = None
+        if objective is not None:
+            text_path = args.objective_validation or (str(data_dir / "val_text.jsonl")
+                                                      if data_dir and (data_dir / "val_text.jsonl").is_file() else None)
+            if text_path:
+                objective_validation = TokenizedDataset.from_records(read_jsonl(text_path), renderer, config.max_seq_len,
+                                                                     overflow="truncate", name="val_text")
+            corpus = curriculum.get("corpus") or {}
+            objective_data = {"natural_train_bytes": int(corpus.get("natural_train_bytes", 0)) if corpus.get("used") else 0,
+                              "natural_val_sha256": corpus.get("val_text_sha256"),
+                              "corpus_sha256": corpus.get("corpus_sha256")}
+            if data_dir is not None and (data_dir / "lexicon.txt").is_file():
+                lexicon = frozenset(w for w in (data_dir / "lexicon.txt").read_text(encoding="utf-8").split() if w)
+            print(f"[objective] {config.stage}: {len(objective.measurements)} measurements, {len(objective.prompts)} fixed "
+                  f"prompts, retains {[r.stage for r in objective.retained] or 'nothing'} (from {objective_dir}); natural "
+                  f"held-out text: {text_path or 'none'}; lexicon: {len(lexicon) if lexicon else 'none'} words",
+                  file=sys.stderr)
+        for s in sources + ([DataSource("validation", validation)] if validation else []) + \
+                ([DataSource("val_text", objective_validation)] if objective_validation else []):
             st = s.dataset.stats()
             print(f"[data] {s.name}: {st['num_examples']} examples, {st['total_tokens']} tokens "
                   f"({st['loss_tokens']} with loss), dropped {st['dropped']}", file=sys.stderr)
+        if objective is not None and objective_data.get("natural_train_bytes"):
+            _count_natural_text_actually_trained(objective_data, curriculum, sources, tokenizer, config.max_seq_len)
+        if curriculum.get("curriculum") == "v2" and data_dir is not None:
+            _write_data_provenance(Path(args.output), data_dir, curriculum)
 
         engine = TrainingEngine(model_config=model_config, tokenizer=tokenizer, config=config, sources=sources,
                                 validation=validation, output_dir=args.output, resume=args.resume, init_from=args.init_from,
-                                carry_optimizer=args.carry_optimizer, allow_no_validation=args.allow_no_validation,
-                                stop_after_steps=args.stop_after_steps, log=lambda m: print(m, file=sys.stderr, flush=True), exporter=package_exporter)
+                                continue_from=args.continue_stage, reopen=args.reopen_stage,
+                                allow_incomplete_parent=args.allow_incomplete_parent,
+                                # --continue-stage is the same stage: its optimizer moments always carry over
+                                carry_optimizer=args.carry_optimizer or bool(args.continue_stage),
+                                allow_no_validation=args.allow_no_validation,
+                                stop_after_steps=args.stop_after_steps, objective=objective,
+                                objective_min_tokens=args.objective_min_tokens,
+                                objective_validation=objective_validation, objective_data=objective_data,
+                                objective_lexicon=lexicon,
+                                log=lambda m: print(m, file=sys.stderr, flush=True), exporter=package_exporter)
     except (TrainingConfigError, DatasetError, ExampleError, CheckpointError, ContaminationError, ModelConfigError,
-            FileNotFoundError, ValueError, KeyError) as exc:
+            StageObjectiveError, FileNotFoundError, ValueError, KeyError) as exc:
         return _err(str(exc))
 
     def on_signal(signum, _frame):  # checkpoint at the next step boundary instead of dying mid-write
@@ -187,6 +310,7 @@ def cmd_train(args: argparse.Namespace) -> int:
     except (CheckpointError, DatasetError) as exc:
         return _err(str(exc))
     print(json.dumps({"stage": summary["stage"], "stop_reason": summary["stop_reason"], "stage_complete": summary["stage_complete"],
+                      "objective_met": summary["objective"]["objective_met"],
                       "final_step": summary["final_step"], "total_steps": summary["total_steps"],
                       "final_validation": summary["final_validation"], "checkpoint": summary["checkpoint"],
                       "package": summary["exports"].get("package"),
@@ -341,6 +465,145 @@ def cmd_data_contamination(args: argparse.Namespace) -> int:
     return 0 if (not report.contaminated or args.allow) else EXIT_ERROR
 
 
+def cmd_data_build_v2(args: argparse.Namespace) -> int:
+    from tinymind.data.corpus import CorpusError
+    from tinymind.data.curriculum_v2 import write_stage
+    try:
+        manifest = write_stage(args.stage, args.out, seed=args.seed, scale=args.scale, corpus_dir=args.corpus)
+    except (CorpusError, ValueError, OSError) as exc:
+        return _err(str(exc))
+    corpus = manifest.get("corpus")
+    print(json.dumps({"stage": args.stage, "out": args.out, "mixture": manifest["mixture"],
+                      "budget": manifest["budget"], "categories": manifest["categories"],
+                      "files": {k: v["examples"] for k, v in manifest["files"].items()},
+                      "test_dropped_for_overlap": manifest["test_dropped_for_overlap"],
+                      "corpus": None if corpus is None else {k: corpus.get(k) for k in (
+                          "used", "expected_byte_share", "natural_train_bytes", "train_records", "val_text_records",
+                          "decontaminated_chunks", "lexicon_words", "corpus_sha256", "note") if k in corpus}},
+                     indent=2))
+    return 0
+
+
+def cmd_data_prepare_corpus(args: argparse.Namespace) -> int:
+    """Real pretraining corpus: stream the manifest's local/url entries shard by
+    shard, verify, chunk, deduplicate, split deterministically, decontaminate,
+    and record provenance (``tinymind.data.corpus``)."""
+    from tinymind.data.corpus import CorpusError, prepare_corpus
+    from tinymind.data.external import DatasetManifestError, corpus_sources, load_manifest
+    try:
+        _, entries = load_manifest(args.manifest)
+        sources = corpus_sources(entries)
+        if not sources:
+            return _err(f"{args.manifest} has no 'local' or 'url' entries: there is no real corpus to prepare "
+                        "(synthetic entries are prepared by 'prepare-external')")
+        tokenizer = build_tokenizer(None if args.tokenizer == "byte" else {"type": "bpe", "path": args.tokenizer})
+        manifest = prepare_corpus(sources, args.out, tokenizer, base_dir=Path(args.manifest).resolve().parent,
+                                  manifest_path=args.manifest, allow_download=args.allow_download, seed=args.seed,
+                                  validation=args.validation, test=args.test, dedup=args.dedup,
+                                  near_threshold=args.near_threshold, eval_files=args.decontaminate or (),
+                                  cache_dir=args.cache_dir, log=lambda m: print(m, file=sys.stderr, flush=True))
+    except (CorpusError, DatasetManifestError, OSError, ValueError) as exc:
+        return _err(str(exc))
+    print(json.dumps({"out": args.out, "total_tokens": manifest["total_tokens"],
+                      "natural_tokens": manifest["natural_tokens"], "natural_fraction": manifest["natural_fraction"],
+                      "splits": {k: {"records": v["records"], "tokens": v["tokens"], "bytes": v["bytes"]}
+                                 for k, v in manifest["splits"].items()},
+                      "dedup": manifest["dedup"], "decontamination": manifest["decontamination"],
+                      "contaminated": manifest["contamination"]["contaminated"],
+                      "tokenizer_hash": manifest["tokenizer"]["hash"], "corpus_sha256": manifest["corpus_sha256"],
+                      "dataset_manifest_sha256": (manifest.get("dataset_manifest") or {}).get("sha256")}, indent=2))
+    return 0
+
+
+def cmd_data_tokenizer_sample(args: argparse.Namespace) -> int:
+    """Deterministic, representative tokenizer-training input (a seeded uniform sample over all shards of the
+    corpus TRAIN split, plus the synthetic supplements) — see ``tinymind.data.corpus.tokenizer_sample``."""
+    from tinymind.data.corpus import CorpusError, tokenizer_sample
+    if not args.corpus and not args.external:
+        return _err("give --corpus (a prepared corpus) and/or --external (prepare-external output)")
+    try:
+        manifest = tokenizer_sample(args.out, corpus_dir=args.corpus, external_dir=args.external,
+                                    natural_records=args.natural_records,
+                                    supplemental_records=args.supplemental_records, seed=args.seed)
+    except (CorpusError, OSError, ValueError, KeyError) as exc:
+        return _err(str(exc))
+    print(json.dumps(manifest, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_objective_report(args: argparse.Namespace) -> int:
+    """Render a run's objective reports for GitHub: a table of every evaluated
+    checkpoint, the newest report in full (raw generations verbatim), and the
+    earlier reports in collapsible sections; appended to $GITHUB_STEP_SUMMARY
+    with --github-summary."""
+    import os
+    from tinymind.training.objective import render_history
+    d = Path(args.run) / "objective_reports"
+    if not (d / "latest.json").is_file():
+        return _err(f"no objective reports under {d} (was the stage trained with an objective?)")
+    latest = json.loads((d / "latest.json").read_text())
+    history = [json.loads(line) for line in (d / "history.jsonl").read_text().splitlines() if line.strip()] \
+        if (d / "history.jsonl").is_file() else []
+    status = "objective MET: the stage is complete" if latest["objective_met"] else "objective not met"
+    parts = [f"# Stage `{latest['stage']}` objective reports ({status})", "",
+             f"Every evaluation checkpoint of this run, oldest first. Full per-checkpoint reports (JSON + Markdown) "
+             f"are in the `objective_reports/` artifact.", "", render_history(history),
+             f"## Newest checkpoint (step {latest['step']:,})", "", (d / "latest.md").read_text(encoding="utf-8")]
+    budget = args.max_bytes - sum(len(p.encode("utf-8")) for p in parts)
+    earlier = sorted((p for p in d.glob("step-*.md") if p.name != f"step-{latest['step']:08d}.md"), reverse=True)
+    omitted = 0
+    for md in earlier:  # newest first, until the job-summary size budget is used
+        block = f"<details><summary>Checkpoint {md.stem} (full report with raw generations)</summary>\n\n" \
+                f"{md.read_text(encoding='utf-8')}\n</details>\n"
+        size = len(block.encode("utf-8"))
+        if size > budget:
+            omitted += 1
+            continue
+        parts.append(block)
+        budget -= size
+    if omitted:
+        parts.append(f"_{omitted} earlier report(s) omitted to stay within the job-summary size limit; they are in "
+                     "the artifact._\n")
+    text = "\n".join(parts)
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+    target = os.environ.get("GITHUB_STEP_SUMMARY") if args.github_summary else None
+    if target:
+        with open(target, "a", encoding="utf-8") as handle:
+            handle.write(text + "\n")
+    print(text)
+    return EXIT_ERROR if (args.fail_if_not_met and not latest["objective_met"]) else 0
+
+
+def cmd_data_curriculum_v2_info(args: argparse.Namespace) -> int:
+    """Emit a stage's budget/lr/mixture as JSON so a workflow can capture the
+    per-stage token budget and learning rate (they are policy in the manifest,
+    not the CLI)."""
+    from tinymind.data.curriculum_v2 import effective_mixture, load_manifest
+    manifest = load_manifest(args.manifest) if args.manifest else load_manifest()
+    spec = manifest["stages"][args.stage]
+    print(json.dumps({"stage": args.stage, "target_tokens": spec["target_tokens"],
+                      "learning_rate": spec.get("learning_rate"), "min_learning_rate": spec.get("min_learning_rate"),
+                      "replay_fraction": spec.get("replay_fraction", 0.0),
+                      "mixture": effective_mixture(args.stage, manifest)}, indent=2))
+    return 0
+
+
+def cmd_data_prepare_external(args: argparse.Namespace) -> int:
+    from tinymind.data.external import DatasetManifestError, prepare
+    try:
+        manifest = prepare(args.manifest, args.out, allow_download=args.allow_download, cache_dir=args.cache_dir)
+    except DatasetManifestError as exc:
+        return _err(str(exc))
+    print(json.dumps({"prepared": len(manifest["entries"]), "out": args.out,
+                      "total_tokens": manifest["total_tokens"], "natural_tokens": manifest["natural_tokens"],
+                      "dataset_manifest_sha256": manifest["dataset_manifest_sha256"],
+                      "entries": [{"source": e["source"], "type": e["type"], "examples": e["examples"],
+                                   "tokens": e["tokens"], "natural": e["natural"]}
+                                  for e in manifest["entries"]]}, indent=2))
+    return 0
+
+
 def cmd_data_render(args: argparse.Namespace) -> int:
     from tinymind.data.render import ChatRenderer
     from tinymind.training.data import read_jsonl
@@ -363,10 +626,28 @@ def register(sub: argparse._SubParsersAction) -> None:
     p.add_argument("--output", required=True, help="run directory (checkpoints/, export/, training_summary.json)")
     p.add_argument("--resume", help="checkpoint or checkpoint root: exact continuation of the SAME stage")
     p.add_argument("--init-from", dest="init_from", help="checkpoint whose weights start a NEW stage")
+    p.add_argument("--continue-stage", dest="continue_stage",
+                   help="checkpoint of the SAME stage to continue with a LARGER token budget (its objective was not met "
+                        "at the previous budget); unlike --resume this extends the horizon")
+    p.add_argument("--reopen-stage", action="store_true", dest="reopen_stage",
+                   help="with --continue-stage: allow continuing a COMPLETE stage whose promotion gate failed")
+    p.add_argument("--allow-incomplete-parent", action="store_true", dest="allow_incomplete_parent",
+                   help="with --init-from: accept a parent stage that is NOT complete (engineering runs only)")
     p.add_argument("--carry-optimizer", action="store_true", dest="carry_optimizer")
+    p.add_argument("--no-objective", action="store_true", dest="no_objective",
+                   help="ignore the stage objective: the budget horizon completes the stage (engineering runs only)")
+    p.add_argument("--objective-dir", dest="objective_dir",
+                   help="directory of <stage>.objective.json thresholds (default: the profile's objective_dir, else "
+                        "configs/stages_v2 for v2 curriculum data)")
+    p.add_argument("--objective-min-tokens", type=int, dest="objective_min_tokens",
+                   help="minimum training tokens before the objective may promote (default: the stage token budget)")
+    p.add_argument("--objective-validation", dest="objective_validation",
+                   help="natural held-out text JSONL for the objective (default: <dataset dir>/val_text.jsonl)")
     p.add_argument("--stage")
     p.add_argument("--epochs", type=int)
     p.add_argument("--max-steps", type=int, dest="max_steps")
+    p.add_argument("--target-tokens", type=int, dest="target_tokens",
+                   help="v2 token-budget training: stop the stage after ~N training tokens (derives the step horizon)")
     p.add_argument("--max-runtime", type=float, dest="max_runtime", help="seconds; checkpoint + export + exit before this")
     p.add_argument("--safety-margin", type=float, dest="safety_margin", help="seconds reserved for the final checkpoint/export")
     p.add_argument("--stop-after-steps", type=int, dest="stop_after_steps",
@@ -442,6 +723,18 @@ def register(sub: argparse._SubParsersAction) -> None:
     p.add_argument("--eval-results", dest="eval_results")
     p.set_defaults(func=cmd_stage_gate)
 
+    p = sub.add_parser("objective-report", help="render a run's stage-objective reports (every evaluated checkpoint, "
+                       "raw generations verbatim) as Markdown, optionally into the GitHub job summary")
+    p.add_argument("--run", required=True, help="training output directory (holds objective_reports/)")
+    p.add_argument("--out", help="also write the Markdown here")
+    p.add_argument("--github-summary", action="store_true", dest="github_summary",
+                   help="append to $GITHUB_STEP_SUMMARY when it is set")
+    p.add_argument("--max-bytes", type=int, default=900_000, dest="max_bytes",
+                   help="size budget for the rendered text (GitHub limits a step summary to 1 MiB)")
+    p.add_argument("--fail-if-not-met", action="store_true", dest="fail_if_not_met",
+                   help="exit non-zero when the newest report's objective is not met")
+    p.set_defaults(func=cmd_objective_report)
+
     p = sub.add_parser("budget", help="mobile size budget (weights, KV cache, RAM estimate) of a profile")
     p.add_argument("--config", required=True)
     p.add_argument("--quantize-embeddings", action="store_true", dest="quantize_embeddings")
@@ -455,6 +748,52 @@ def register(sub: argparse._SubParsersAction) -> None:
     q.add_argument("--seed", type=int, default=0)
     q.add_argument("--scale", type=float, default=1.0)
     q.set_defaults(func=cmd_data_build)
+    q = dsub.add_parser("build-curriculum-v2", help="write a v2 stage's train/val/test JSONL files (7-stage 50M curriculum)")
+    q.add_argument("--stage", required=True, choices=["stage1", "stage2", "stage3", "stage4", "stage5", "stage6", "stage7"])
+    q.add_argument("--out", required=True)
+    q.add_argument("--seed", type=int, default=0)
+    q.add_argument("--scale", type=float, default=1.0)
+    q.add_argument("--corpus", help="a corpus prepared by 'data prepare-corpus': the stage then trains on real natural "
+                                    "text as its 'corpus' block in configs/curriculum_v2.json says")
+    q.set_defaults(func=cmd_data_build_v2)
+    q = dsub.add_parser("prepare-corpus", help="real pretraining corpus from the manifest's local/url entries: sharded "
+                        "streaming, checksums, dedup, deterministic splits, decontamination, provenance")
+    q.add_argument("--manifest", required=True, help="dataset manifest (e.g. datasets/v2/manifest.json)")
+    q.add_argument("--out", required=True, help="output directory (train/val/test.jsonl + corpus_manifest.json)")
+    q.add_argument("--tokenizer", default="byte", help="'byte' (default) or a tokenizer.json path, for token counts")
+    q.add_argument("--allow-download", action="store_true", dest="allow_download",
+                   help="permit http(s) shards (needs a network); local and file:// shards never need it")
+    q.add_argument("--seed", type=int, default=0)
+    q.add_argument("--validation", type=float, default=0.02, help="held-out validation share of document groups")
+    q.add_argument("--test", type=float, default=0.02, help="held-out test share of document groups")
+    q.add_argument("--dedup", choices=["near", "exact", "none"], default="near")
+    q.add_argument("--near-threshold", type=float, default=0.8, dest="near_threshold",
+                   help="MinHash-estimated Jaccard similarity at which two chunks count as near duplicates")
+    q.add_argument("--decontaminate", nargs="*", help="evaluation JSONL files: drop chunks sharing an 8-gram with them")
+    q.add_argument("--cache-dir", dest="cache_dir",
+                   help="where downloaded shards are kept (default: <out>/_download_cache; never commit it)")
+    q.set_defaults(func=cmd_data_prepare_corpus)
+    q = dsub.add_parser("tokenizer-sample", help="deterministic, representative tokenizer-training input: a seeded "
+                        "uniform sample over all shards of the corpus TRAIN split plus the synthetic supplements")
+    q.add_argument("--corpus", help="a corpus prepared by 'data prepare-corpus' (its train split is sampled)")
+    q.add_argument("--external", help="'data prepare-external' output (its NON-natural entries are sampled)")
+    q.add_argument("--out", required=True, help="directory for the samples and sample_manifest.json")
+    q.add_argument("--natural-records", type=int, default=8000, dest="natural_records",
+                   help="corpus chunks to sample (about 1 KB each; BPE training time grows with the sample)")
+    q.add_argument("--supplemental-records", type=int, default=4000, dest="supplemental_records")
+    q.add_argument("--seed", type=int, default=0, help="sampling seed (keep it fixed across stages)")
+    q.set_defaults(func=cmd_data_tokenizer_sample)
+    q = dsub.add_parser("curriculum-v2-info", help="print a v2 stage's token budget, learning rate and mixture (JSON)")
+    q.add_argument("--stage", required=True, choices=["stage1", "stage2", "stage3", "stage4", "stage5", "stage6", "stage7"])
+    q.add_argument("--manifest", help="curriculum manifest path (default: configs/curriculum_v2.json)")
+    q.set_defaults(func=cmd_data_curriculum_v2_info)
+    q = dsub.add_parser("prepare-external", help="prepare external/synthetic datasets from a dataset manifest (brief section 13)")
+    q.add_argument("--manifest", required=True, help="dataset manifest (e.g. datasets/v2/manifest.json)")
+    q.add_argument("--out", required=True)
+    q.add_argument("--allow-download", action="store_true", dest="allow_download",
+                   help="permit 'url' entries (needs a network; CI stays hermetic without this)")
+    q.add_argument("--cache-dir", dest="cache_dir", help="where downloaded shards are kept (shared with prepare-corpus)")
+    q.set_defaults(func=cmd_data_prepare_external)
     q = dsub.add_parser("check-contamination", help="fail if eval prompts occur in the training data")
     q.add_argument("--train", nargs="+", required=True)
     q.add_argument("--eval", required=True)

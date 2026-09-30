@@ -102,6 +102,13 @@ def score(text: str, meta: dict[str, Any]) -> dict[str, Any]:
         return {"ok": out.lower().startswith(REFUSAL_STARTS) and not looks_like_call(out)}
     if kind == "no_tool":
         return {"ok": not looks_like_call(out) and all(x in out.lower() for x in meta.get("expected", [])), "called_tool": looks_like_call(out)}
+    if kind == "final_answer":
+        # v2 reasoning/math (brief section 4): the answer follows the last '####'.
+        # The model's steps are not scored for wording, only the final value.
+        tail = text.rsplit("####", 1)[-1] if "####" in text else text
+        got = _norm(tail)
+        want = _norm(str(meta["expected"]))
+        return {"ok": got == want or want in got.split(), "final": got, "expected": want}
     if kind in ("tool_call", "tool_name"):
         call = parse_tool_call(text)
         want = meta["tool"]

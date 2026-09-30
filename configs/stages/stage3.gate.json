@@ -1,0 +1,13 @@
+{
+  "note": "v2 promotion gate stage3 -> stage4 (measurable, provisional policy). Thresholds are floors set BEFORE the full-budget run, not predictions of quality: the newly taught capabilities (knowledge, comprehension) must clear a real floor on the independent held-out test, prior capabilities (reasoning, language) must not regress below their replay floor, and validation loss must stay low. Tighten after the first full 50M run on a runner (docs/training/tinymind-v2-50m-plan.md). Categories referenced are guaranteed present in stage3's held-out test set (primary + replay).",
+  "expect_stage": "stage3",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.2},
+    {"metric": "eval.capabilities.knowledge.accuracy", "min": 0.25},
+    {"metric": "eval.capabilities.comprehension.accuracy", "min": 0.25},
+    {"metric": "eval.capabilities.reasoning.accuracy", "min": 0.2},
+    {"metric": "eval.capabilities.language.accuracy", "min": 0.2}
+  ]
+}

@@ -480,12 +480,21 @@ def _diff(stored: dict[str, Any], current: dict[str, Any]) -> list[str]:
 
 def validate_resume(ckpt: LoadedCheckpoint, *, stage: str, model_config: dict[str, Any], tokenizer_spec: dict[str, Any],
                     renderer_spec: dict[str, Any], dataset_hash: str, dataset_identity: dict[str, Any],
-                    training_compat: dict[str, Any]) -> None:
+                    training_compat: dict[str, Any], skip: tuple[str, ...] = ()) -> None:
     """Exact-resume gate: raises ``ResumeMismatchError`` listing EVERY mismatch
-    (architecture, tokenizer, renderer, dataset, training config, stage)."""
+    (architecture, tokenizer, renderer, dataset, training config, stage).
+
+    ``skip`` is only for a deliberate same-stage budget extension
+    (``--continue-stage``): ``"total_steps"`` leaves the horizon length out of the
+    training-config comparison (every other trajectory field is still compared
+    exactly) and ``"stage_complete"`` lets the caller handle a completed
+    checkpoint itself (it re-opens one only when explicitly asked)."""
+    unknown = set(skip) - {"stage_complete", "total_steps"}
+    if unknown:
+        raise ValueError(f"validate_resume cannot skip {sorted(unknown)}")
     problems: list[str] = []
     st = ckpt.state
-    if ckpt.manifest.get("stage_complete"):
+    if "stage_complete" not in skip and ckpt.manifest.get("stage_complete"):
         problems.append("the checkpoint is a COMPLETED stage; nothing to resume (use --init-from to start the next stage)")
     if ckpt.manifest["stage"] != stage:
         problems.append(f"stage differs: checkpoint={ckpt.manifest['stage']!r}, this run={stage!r} "
@@ -503,8 +512,12 @@ def validate_resume(ckpt: LoadedCheckpoint, *, stage: str, model_config: dict[st
                        {"sources": [(s["name"], s["content_hash"][:12], s["weight"]) for s in new["sources"]],
                         "epoch_examples": new["epoch_examples"]})
         problems.append("dataset identity differs: " + ("; ".join(detail) or "hash differs"))
-    if st["training_config_compat"] != training_compat:
-        problems.append("training configuration differs: " + "; ".join(_diff(st["training_config_compat"], training_compat)))
+    stored_compat, wanted_compat = st["training_config_compat"], training_compat
+    if "total_steps" in skip:
+        stored_compat = {k: v for k, v in stored_compat.items() if k != "total_steps"}
+        wanted_compat = {k: v for k, v in wanted_compat.items() if k != "total_steps"}
+    if stored_compat != wanted_compat:
+        problems.append("training configuration differs: " + "; ".join(_diff(stored_compat, wanted_compat)))
     if problems:
         raise ResumeMismatchError("cannot resume from " + str(ckpt.path) + ":\n  - " + "\n  - ".join(problems))
 

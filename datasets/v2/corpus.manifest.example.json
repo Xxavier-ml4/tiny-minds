@@ -1,0 +1,41 @@
+{
+  "note": "EXAMPLE manifest for a REAL Stage-1 pretraining corpus. Use it (or copy its entries into datasets/v2/manifest.json) with 'tinymind data prepare-corpus --manifest datasets/v2/corpus.manifest.example.json --out data/corpus --allow-download', or set the train-50m workflow inputs dataset_manifest=datasets/v2/corpus.manifest.example.json and allow_download=true. Shards are streamed one at a time into a download cache under the output directory (never into git), hashed while streaming, verified against 'sha256' when given, chunked, deduplicated across the whole corpus (repeated paragraphs, exact and MinHash near-duplicate chunks), split deterministically into train/val/test by document group, and recorded with source, license, redacted URL, per-shard SHA-256, token counts, the tokenizer hash and this manifest's hash in corpus_manifest.json. PINNING: the first preparation records every shard's observed sha256 in corpus_manifest.json; copy those values into 'sha256' (one per shard, same order) so later runs refuse silently changed data. PRIVATE DATA: add \"auth_env\": \"HF_TOKEN\" (Hugging Face gated/private datasets) or \"auth_env\": \"CORPUS_TOKEN\" (any other bearer-token host) to an entry and create the repository secret of that name; train-50m.yml passes those two secrets to the data-preparation step only (never to training). The token is sent only to the shard's own host, never forwarded on a redirect, and never logged or recorded. LOCAL DATA: a 'local' entry takes file paths (relative to this file), absolute paths or file:// URLs, e.g. {\"source\": \"my_books\", \"type\": \"local\", \"format\": \"text\", \"shards\": [\"/data/books/part-000.txt.gz\", \"/data/books/part-001.txt.gz\"], \"license\": \"...\"}. SIZE: keep chunk_chars x tokens-per-character + 2 within the model's max_seq_len (about 4 characters per token for a 16k BPE; 1 per token for the byte tokenizer); max_records caps the chunks kept from a source and is spread evenly over its shards (at most ceil(max_records / shards) from each). The same manifest format serves every model size: a 500M or 1B run lists more shards (and, for a corpus deduplicated upstream, can prepare with --dedup exact).",
+  "version": 2,
+  "datasets": [
+    {
+      "source": "c4_en",
+      "type": "url",
+      "format": "jsonl",
+      "text_field": "text",
+      "shards": [
+        "https://huggingface.co/datasets/allenai/c4/resolve/main/en/c4-train.00000-of-01024.json.gz",
+        "https://huggingface.co/datasets/allenai/c4/resolve/main/en/c4-train.00001-of-01024.json.gz"
+      ],
+      "split": "train",
+      "weight": 1.0,
+      "chunk_chars": 1000,
+      "min_chars": 200,
+      "max_records": 150000,
+      "license": "ODC-BY-1.0 (allenai/c4; also subject to the Common Crawl terms of use)",
+      "description": "English web text (C4 'en'), two of 1024 public shards, capped at 150k chunks (~150 MB of text) spread evenly: up to 75k from each shard. Unpinned until the first preparation records the shard hashes."
+    },
+    {
+      "source": "stage1_language_sample",
+      "type": "local",
+      "format": "text",
+      "shards": [
+        "samples/stage1_language_sample.txt"
+      ],
+      "sha256": [
+        "1589161676dec23f919b4832a7ef9a43e34415754586c59f51cf7c93052c29e1"
+      ],
+      "split": "train",
+      "weight": 1.0,
+      "chunk_chars": 400,
+      "min_chars": 32,
+      "group_chunks": 3,
+      "license": "CC0-1.0 (public domain dedication; written for this repository)",
+      "description": "The committed sample, kept so a local entry with a pinned hash sits next to the URL entries."
+    }
+  ]
+}

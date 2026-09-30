@@ -40,3 +40,15 @@ android/app/build/
 .idea/
 .vscode/
 *.swp
+
+# Prepared / downloaded pretraining corpora: never committed. The small CC0
+# sample under datasets/v2/samples/ and the example manifest are the only
+# corpus files that are tracked.
+/data/
+datasets/**/prepared/
+**/_download_cache/
+**/corpus_manifest.json
+*.part
+!datasets/v2/samples/
+!datasets/v2/samples/**
+!datasets/v2/corpus.manifest.example.json

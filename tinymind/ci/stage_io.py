@@ -21,9 +21,14 @@ the bundle manifest, requires the model config to equal the profile it is about
 to train with, and (optionally) that the checkpoint manifest hash equals a value
 the operator pinned in the workflow inputs.
 
-Modes: ``fresh`` (no artifact), ``resume`` (same stage, not yet complete: exact
-continuation via ``tinymind train --resume``), ``init-from`` (next stage: weights
-from a *completed* stage via ``--init-from``, after the optional promotion gate).
+Modes: ``fresh`` (no artifact), ``resume`` (same stage, not yet complete, budget
+left: exact continuation via ``tinymind train --resume``), ``continue`` (same
+stage, its token budget used up without meeting the stage objective — or a
+complete stage whose own promotion gate fails — continued with a larger budget
+via ``--continue-stage``), ``init-from`` (next stage: weights from a *completed*
+stage — objective met — via ``--init-from``, after the optional promotion gate).
+A stage is never promoted because its budget ran out: ``stage_complete`` in a
+v2 bundle means the stage objective was met.
 
 CLI (used by ``.github/workflows/train-stage.yml``)::
 
@@ -104,6 +109,10 @@ def bundle_run(run_dir: str | Path, dest: str | Path, *, profile: str, stage: st
             "checkpoint": prev[-1], "manifest_sha256": _sha(root / prev[-1] / "manifest.json"), "global_step": int(prev[-1].split("-")[1])}, indent=2))
     if (run / "export").is_dir():
         shutil.copytree(run / "export", dest / "export")
+    if (run / "objective_reports").is_dir():  # every evaluated checkpoint's report, raw generations included
+        shutil.copytree(run / "objective_reports", dest / "objective_reports")
+    if (run / "data_provenance").is_dir():  # curriculum + corpus provenance (sources, licenses, shard hashes)
+        shutil.copytree(run / "data_provenance", dest / "data_provenance")
     for name in ("training_summary.json", "metrics.jsonl"):
         if (run / name).is_file():
             shutil.copy2(run / name, dest / name)
@@ -112,10 +121,25 @@ def bundle_run(run_dir: str | Path, dest: str | Path, *, profile: str, stage: st
             shutil.copy2(src, dest / name)
 
     manifest_c = json.loads((latest / "manifest.json").read_text())
+    state_c = json.loads((latest / "state.json").read_text())
+    summary = json.loads((run / "training_summary.json").read_text()) if (run / "training_summary.json").is_file() else {}
     commit = manifest_c.get("git_commit") or os.environ.get("GITHUB_SHA") or "nogit"
+    progress = state_c.get("progress", {})
+    total_steps = int(state_c.get("scheduler", {}).get("total_steps") or progress.get("total_steps") or 0)
+    tcfg = state_c.get("training_config", {})
+    effective_batch = int(tcfg.get("batch_size", 1)) * int(tcfg.get("gradient_accumulation_steps", 1)) * \
+        int(tcfg.get("max_seq_len", 0))
+    objective = summary.get("objective") or {}
     manifest = {
         "kind": BUNDLE_KIND, "format_version": BUNDLE_FORMAT, "profile": profile, "stage": manifest_c["stage"],
         "global_step": manifest_c["global_step"], "stage_complete": manifest_c["stage_complete"],
+        # Objective-driven routing facts (see resolve_mode): why the run stopped, and whether its budget is used up.
+        "stop_reason": summary.get("stop_reason"),
+        "total_steps": total_steps, "target_tokens": int(tcfg.get("target_tokens") or 0),
+        "effective_batch_tokens": effective_batch, "budget_tokens": total_steps * effective_batch,
+        "budget_exhausted": bool(total_steps) and int(manifest_c["global_step"]) >= total_steps,
+        "objective": {"configured": bool(objective.get("configured")), "objective_met": objective.get("objective_met"),
+                      "report_step": objective.get("report_step")},
         "run_id": run_id or os.environ.get("GITHUB_RUN_ID"), "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
         "git_commit": manifest_c.get("git_commit"), "checkpoint": latest.name,
         "checkpoint_manifest_sha256": _sha(latest / "manifest.json"),
@@ -172,26 +196,57 @@ def verify_bundle(directory: str | Path) -> tuple[dict[str, Any], Path]:
     return m, latest
 
 
-def resolve_mode(m: dict[str, Any], *, stage: str, requested: str = "auto") -> str:
+def resolve_mode(m: dict[str, Any], *, stage: str, requested: str = "auto", own_gate_failed: bool = False) -> str:
+    """How a job continues from an incoming bundle:
+
+    ``resume``     same stage, not complete, budget left (e.g. stopped for time): exact continuation
+    ``continue``   same stage, not complete, whole budget used — the stage objective was not met at its
+                   token budget (``gate_failed``): continue with a LARGER budget (``--continue-stage``);
+                   also a COMPLETE stage whose own promotion gate failed (``own_gate_failed``): reopened
+    ``init-from``  the next stage, from a COMPLETE one (its objective met), after the promotion gate
+
+    Old bundles without ``budget_exhausted`` route as before (``resume``)."""
     same = m["stage"] == stage
     complete = bool(m["stage_complete"])
+    exhausted = bool(m.get("budget_exhausted")) or m.get("stop_reason") == "gate_failed"
+    if requested == "continue" or (requested == "auto" and same and ((not complete and exhausted)
+                                                                     or (complete and own_gate_failed))):
+        if not same:
+            raise BundleError(f"cannot continue: artifact is stage {m['stage']!r}, this run is {stage!r} "
+                              "(--continue-stage extends the SAME stage)")
+        if complete and not own_gate_failed:
+            raise BundleError(f"cannot continue: {stage} is already complete in this artifact and its promotion gate "
+                              "does not fail; start the next stage from it (init-from)")
+        return "continue"
     if requested == "resume" or (requested == "auto" and same and not complete):
         if not same:
             raise BundleError(f"cannot resume: artifact is stage {m['stage']!r}, this run is {stage!r}")
         if complete:
             raise BundleError(f"cannot resume: {stage} is already complete in this artifact (step {m['global_step']}); "
                               "start the next stage from it, or re-run this stage from scratch")
+        if exhausted:
+            raise BundleError(f"cannot resume: {stage} used its whole token budget without meeting its objective "
+                              f"(stop reason {m.get('stop_reason')!r}); continue it with a larger budget (mode continue)")
         return "resume"
-    if requested == "init-from" or (requested == "auto" and not same and complete):
+    if requested == "init-from" or (requested == "auto" and not same):
         if not complete:
-            raise BundleError(f"cannot start {stage} from {m['stage']!r}: that stage is not complete (step {m['global_step']}); "
-                              "resume it first")
+            raise BundleError(f"cannot start {stage} from {m['stage']!r}: that stage is not complete (step {m['global_step']}"
+                              f", stop reason {m.get('stop_reason')!r}); its objective must be met first — resume or "
+                              "continue it")
         if same:
             raise BundleError(f"refusing to initialise stage {stage} from its own completed checkpoint")
         return "init-from"
     if requested == "auto":
         raise BundleError(f"cannot decide: artifact is stage {m['stage']!r} (complete={complete}), this run is {stage!r}")
     raise BundleError(f"unknown mode {requested!r}")
+
+
+def _evaluate_bundle_gate(directory: Path, gate_file: Path) -> dict[str, Any]:
+    from tinymind.training.gate import evaluate_gate
+    summary = json.loads((directory / "training_summary.json").read_text()) \
+        if (directory / "training_summary.json").is_file() else None
+    evals = json.loads((directory / "eval_results.json").read_text()) if (directory / "eval_results.json").is_file() else None
+    return evaluate_gate(json.loads(gate_file.read_text()), summary=summary, eval_results=evals)
 
 
 def check_incoming(directory: str | Path, *, stage: str, profile_config: str | Path, requested_mode: str = "auto",
@@ -211,23 +266,33 @@ def check_incoming(directory: str | Path, *, stage: str, profile_config: str | P
         problems.append("checkpoint manifest SHA-256 differs from the value pinned in the workflow inputs")
     if problems:
         raise BundleError("; ".join(problems))
-    mode = resolve_mode(m, stage=stage, requested=requested_mode)
-    verdict: dict[str, Any] | None = None
+    base = Path(directory)
+    own_gate_failed = False
+    own_gate: dict[str, Any] | None = None
+    if m["stage"] == stage and m["stage_complete"] and gate_dir and not skip_gate and requested_mode in ("auto", "continue"):
+        # A complete stage offered to itself: reopen it only if its OWN promotion gate fails (the objective was met
+        # but the capability floors that guard the next stage are not) — otherwise there is nothing to do here.
+        own_file = Path(gate_dir) / f"{m['stage']}.gate.json"
+        if own_file.is_file():
+            own_gate = _evaluate_bundle_gate(base, own_file)
+            own_gate_failed = not own_gate["passed"]
+    mode = resolve_mode(m, stage=stage, requested=requested_mode, own_gate_failed=own_gate_failed)
+    verdict: dict[str, Any] | None = own_gate if mode == "continue" and own_gate_failed else None
     if mode == "init-from" and gate_dir and not skip_gate:
-        from tinymind.training.gate import evaluate_gate
         gate_file = Path(gate_dir) / f"{m['stage']}.gate.json"
-        base = Path(directory)
         if gate_file.is_file():
-            summary = json.loads((base / "training_summary.json").read_text()) if (base / "training_summary.json").is_file() else None
-            evals = json.loads((base / "eval_results.json").read_text()) if (base / "eval_results.json").is_file() else None
-            verdict = evaluate_gate(json.loads(gate_file.read_text()), summary=summary, eval_results=evals)
+            verdict = _evaluate_bundle_gate(base, gate_file)
             if not verdict["passed"]:
                 failed = [c for c in verdict["checks"] if not c["ok"]]
                 raise BundleError("promotion gate FAILED: " + "; ".join(
-                    f"{c['check']}={c['value']!r} (needs {c['requirement']})" for c in failed))
+                    f"{c['check']}={c['value']!r} (needs {c['requirement']})" for c in failed)
+                    + f". Re-run {m['stage']} with this artifact to continue (reopen) it.")
         else:
             verdict = {"passed": None, "note": f"no gate file {gate_file}; promotion was not gated"}
-    return {"mode": mode, "checkpoint": str(Path(directory) / "checkpoints"), "bundle": m, "gate": verdict}
+    return {"mode": mode, "reopen": bool(mode == "continue" and m["stage_complete"]),
+            "checkpoint": str(base / "checkpoints"), "bundle": m, "gate": verdict,
+            "parent_target_tokens": m.get("target_tokens"), "parent_budget_tokens": m.get("budget_tokens"),
+            "parent_total_steps": m.get("total_steps"), "parent_stop_reason": m.get("stop_reason")}
 
 
 def read_training_context(bundle_dir: str | Path) -> dict[str, Any]:
@@ -243,9 +308,14 @@ def read_training_context(bundle_dir: str | Path) -> dict[str, Any]:
 # ---------------------------------------------------------------------------------------- reporting
 def summary_markdown(bundle: dict[str, Any], summary: dict[str, Any] | None, gate: dict[str, Any] | None = None,
                      eval_results: dict[str, Any] | None = None) -> str:
+    exhausted = bool(bundle.get("budget_exhausted")) or bundle.get("stop_reason") == "gate_failed"
+    state = "**stage complete** (objective met)" if bundle["stage_complete"] and (bundle.get("objective") or {}).get("configured") \
+        else "**stage complete**" if bundle["stage_complete"] else \
+        "stage NOT complete — objective not met at the token budget; continue it with a larger budget" if exhausted else \
+        "stage NOT complete — resume it"
     lines = [f"## {bundle['profile']} — {bundle['stage']}", "",
              f"| | |", "|---|---|",
-             f"| step | {bundle['global_step']} ({'**stage complete**' if bundle['stage_complete'] else 'stage NOT complete — resume it'}) |",
+             f"| step | {bundle['global_step']} ({state}) |",
              f"| parameters | {bundle['model_parameter_count']:,} |",
              f"| artifact | `{bundle['artifact_name']}` |",
              f"| checkpoint manifest sha256 | `{bundle['checkpoint_manifest_sha256']}` |",
@@ -262,10 +332,37 @@ def summary_markdown(bundle: dict[str, Any], summary: dict[str, Any] | None, gat
             lines.append(f"| {cat} | {e['n']} | {e['accuracy']:.3f} |" if e.get("accuracy") is not None else f"| {cat} | {e['n']} | n/a |")
     if gate:
         lines += ["", f"Promotion gate: **{'passed' if gate['passed'] else 'FAILED'}**"]
-    lines += ["", "To continue: run **train-stage** with " + (
-        f"`resume_artifact={bundle['artifact_name']}` (same stage, mode resume)." if not bundle["stage_complete"] else
-        f"`resume_artifact={bundle['artifact_name']}` and the next stage (mode init-from).")]
+    if bundle["stage_complete"]:
+        nxt = (f"`resume_artifact={bundle['artifact_name']}` and the next stage (mode init-from; if that stage's promotion "
+               f"gate fails, re-run {bundle['stage']} with the same artifact: it is reopened and continued).")
+    elif exhausted:
+        nxt = f"`resume_artifact={bundle['artifact_name']}` and the SAME stage (mode continue: a larger token budget)."
+    else:
+        nxt = f"`resume_artifact={bundle['artifact_name']}` (same stage, mode resume)."
+    lines += ["", "To continue: run the training workflow with " + nxt]
     return "\n".join(lines) + "\n"
+
+
+def decision_markdown(d: dict[str, Any], stage: str) -> str:
+    """The incoming-artifact routing decision, for the job summary."""
+    b, gate = d["bundle"], d["gate"]
+    gate_text = "not evaluated" if gate is None else ("passed" if gate.get("passed") else
+                                                      "FAILED" if gate.get("passed") is False else gate.get("note", "not gated"))
+    mode = {"resume": "resume (same stage, exact continuation of its horizon)",
+            "continue": "continue (same stage, larger token budget)" + (": REOPENED, its promotion gate failed" if d["reopen"] else ""),
+            "init-from": "init-from (next stage)"}.get(d["mode"], d["mode"])
+    return ("### Incoming artifact: routing decision\n\n| | |\n|---|---|\n"
+            f"| artifact | `{b['artifact_name']}` |\n"
+            f"| parent | {b['stage']} step {b['global_step']}, {'complete' if b['stage_complete'] else 'incomplete'}, "
+            f"stop reason `{b.get('stop_reason')}` |\n"
+            f"| this run | {stage}: **{mode}** |\n| promotion gate | {gate_text} |\n\n")
+
+
+def _step_summary(text: str) -> None:
+    target = os.environ.get("GITHUB_STEP_SUMMARY")
+    if target:
+        with open(target, "a") as handle:
+            handle.write(text)
 
 
 # ---------------------------------------------------------------------------------------- CLI
@@ -287,7 +384,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--dir", required=True)
     a.add_argument("--stage", required=True)
     a.add_argument("--profile-config", required=True)
-    a.add_argument("--mode", default="auto", choices=["auto", "resume", "init-from"])
+    a.add_argument("--mode", default="auto", choices=["auto", "resume", "continue", "init-from"])
     a.add_argument("--expect-manifest-sha256", default="")
     a.add_argument("--gate-dir", default="")
     a.add_argument("--skip-gate", action="store_true")
@@ -307,12 +404,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "runtime":
             _github_output({"seconds": runtime_seconds(args.max_hours)})
         elif args.cmd == "check-incoming":
-            d = check_incoming(args.dir, stage=args.stage, profile_config=args.profile_config, requested_mode=args.mode,
-                               expect_manifest_sha256=args.expect_manifest_sha256 or None, gate_dir=args.gate_dir or None,
-                               skip_gate=args.skip_gate)
+            try:
+                d = check_incoming(args.dir, stage=args.stage, profile_config=args.profile_config, requested_mode=args.mode,
+                                   expect_manifest_sha256=args.expect_manifest_sha256 or None,
+                                   gate_dir=args.gate_dir or None, skip_gate=args.skip_gate)
+            except BundleError as exc:
+                _step_summary(f"### Incoming artifact REJECTED for {args.stage}\n\n{exc}\n\n")
+                raise
+            _step_summary(decision_markdown(d, args.stage))
+            gate_state = "skipped" if args.skip_gate else ("none" if not d["gate"] else (
+                "passed" if d["gate"]["passed"] else ("failed" if d["gate"]["passed"] is False else "not-gated")))
             _github_output({"mode": d["mode"], "checkpoint": d["checkpoint"], "parent_stage": d["bundle"]["stage"],
-                            "gate": "skipped" if args.skip_gate else ("none" if not d["gate"] else ("passed" if d["gate"]["passed"] else "not-gated")),
-                            "parent_step": d["bundle"]["global_step"], "parent_artifact": d["bundle"]["artifact_name"]})
+                            "gate": gate_state, "reopen": str(d["reopen"]).lower(),
+                            "parent_step": d["bundle"]["global_step"], "parent_artifact": d["bundle"]["artifact_name"],
+                            "parent_target_tokens": d["parent_target_tokens"] or 0,
+                            "parent_budget_tokens": d["parent_budget_tokens"] or 0,
+                            "parent_stop_reason": d["parent_stop_reason"] or ""})
         elif args.cmd == "bundle":
             extra = {}
             if args.eval:
@@ -321,7 +428,9 @@ def main(argv: list[str] | None = None) -> int:
                 extra["runner_profile.json"] = Path(args.probe)
             m = bundle_run(args.run, args.dest, profile=args.profile, stage=args.stage, extra_files=extra)
             _github_output({"artifact_name": m["artifact_name"], "global_step": m["global_step"], "stage_complete": str(m["stage_complete"]).lower(),
-                            "checkpoint_manifest_sha256": m["checkpoint_manifest_sha256"]})
+                            "checkpoint_manifest_sha256": m["checkpoint_manifest_sha256"],
+                            "stop_reason": m.get("stop_reason") or "",
+                            "budget_exhausted": str(bool(m.get("budget_exhausted"))).lower()})
         elif args.cmd == "training-context":
             ctx = read_training_context(args.dir)
             _github_output({"stage": ctx["stage"], "seed": ctx["seed"]})

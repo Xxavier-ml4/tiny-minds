@@ -4,6 +4,101 @@ All notable changes to this project are recorded here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); this project has
 not yet made a tagged release, so everything below is unreleased.
 
+## [Unreleased] — Audit of the objective-driven stages and the Stage-1 corpus path
+
+### Fixed
+
+- A checkpoint saved before a stage's first evaluation stored the untrained
+  step-0 baseline as the regression reference. A run resumed from it compared
+  its first checkpoint with a random model; checkpoints now store exactly the
+  in-memory reference, so a resumed run decides like the uninterrupted one.
+- `train-50m.yml` ran steps under GitHub's default `bash -e` without
+  `pipefail`, so `prepare-corpus … | tee`, `build-curriculum-v2 … | tee` and
+  the preflight `… | tee` passed even when the command failed. The workflow
+  now sets `defaults: run: shell: bash`.
+- The corpus split was seeded with the training seed. A later stage
+  dispatched with another seed would get a different split, natural held-out
+  text and tokenizer, and init-from would fail. The split now uses the
+  corpus's own fixed seed.
+- The Stage-1 data requirement counted corpus chunks the trainer drops for
+  exceeding `max_seq_len`. `data.natural_train_bytes` now counts only the
+  natural text actually trained, with a warning.
+
+### Changed
+
+- Tokenizer training input is `tinymind data tokenizer-sample`: a seeded
+  uniform sample (bottom-k by `sha256(seed:id)`) over every shard of the corpus
+  TRAIN split plus the synthetic supplements, with a `sample_manifest.json`.
+  It replaces `head -n` of each file, which covered only the first shards and
+  also fed held-out text into the tokenizer.
+- `val_text.jsonl` / `test_text.jsonl` are the same kind of sample across
+  every shard, not the first N records, and are identical for every stage
+  built from the same corpus.
+- `max_records` is spread evenly over a source's shards, so every shard is
+  read.
+- The trainer's wall-clock budget in `train-50m.yml` subtracts the time spent
+  on data preparation and tokenizer training, so a long preparation cannot run
+  the job into the hard timeout.
+- Corpus provenance (`corpus_manifest.json`: sources, licenses, shard hashes)
+  and `curriculum.json` go into `<run>/data_provenance/` and the stage bundle.
+  The workflow adds the tokenizer sample manifest.
+- `train-50m.yml` passes the optional secrets `HF_TOKEN` / `CORPUS_TOKEN` to
+  the data-preparation step only, for private corpus shards (`auth_env`).
+- `stage_io check-incoming` writes its routing decision, or the reason for a
+  rejection, to the job summary.
+- Tests: `tests/ci/test_objective_chain.py` (the whole chain through the real
+  command lines), plus regression tests for each fix above.
+
+## [Unreleased] — Objective-driven stages and real pretraining data
+
+### Added
+
+- `tinymind/data/corpus.py`: real pretraining-corpus ingestion. It streams
+  sharded local, `file://` and `http(s)` data (network only with
+  `--allow-download`), verifies per-shard SHA-256, and supports private
+  shards via `auth_env` (the bearer token is never forwarded on redirects or
+  recorded). It chunks text; deduplicates across the corpus (repeated
+  paragraphs, exact, MinHash near duplicates); splits train/val/test
+  deterministically by document group; decontaminates against evaluation
+  prompts; and writes a provenance `corpus_manifest.json`.
+  CLI: `tinymind data prepare-corpus`.
+- `build-curriculum-v2 --corpus`: attaches the corpus as configured by the
+  per-stage `corpus` blocks in `configs/curriculum_v2.json`. Stage 1 trains
+  80% on natural text by bytes, with the synthetic generators as a
+  supplement; later stages replay 10%. It writes natural held-out text
+  (`val_text.jsonl`) and a lexicon.
+- `tinymind/training/objective.py` and
+  `configs/stages_v2/stage1..7.objective.json`: stage objectives measured on
+  the live model at every evaluation checkpoint. They cover held-out loss,
+  natural-text bits per byte, generation quality on fixed prompts, grammar
+  checks, data requirements, retained earlier capabilities, and regression
+  against the previous checkpoint and against promotion-time metrics. Every
+  measurement must pass.
+- Per-checkpoint objective reports (JSON + Markdown with the exact prompts and
+  raw generations) and `tinymind objective-report` for the GitHub job summary.
+- `tinymind train --continue-stage` (with `--reopen-stage`): same-stage
+  continuation with a larger token budget. Also `--no-objective`,
+  `--objective-dir`, `--objective-min-tokens` and `--objective-validation`.
+- `stage_io`: `continue` routing mode; bundles record `stop_reason`, budget and
+  objective state, and carry the objective reports.
+- `datasets/v2/samples/` (a small CC0 natural-text sample) and
+  `datasets/v2/corpus.manifest.example.json`; `docs/training/objective-driven-stages.md`.
+
+### Changed
+
+- A v2 stage is complete only when its objective is met. Its token budget is
+  the minimum training chunk. A stage that uses its budget without meeting the
+  objective ends `gate_failed` and stays incomplete. Stages without an
+  objective (the v1 pipeline, `--no-objective`) keep budget completion.
+- `train-50m.yml` prepares the real corpus and trains until the objective is
+  met (`resume` / `continue` / `init-from`). It publishes every checkpoint's
+  report to the job summary, uploads the reports as an artifact, and previews
+  the promotion gate.
+- `datasets/v2/manifest.json` holds the natural-text sample (primary, pinned)
+  and marks the synthetic entries as supplemental. `tinymind data
+  prepare-external` streams and chunks `local`/`url` entries, including
+  sharded and `.gz` ones.
+
 ## [Unreleased] — Phase 3A
 
 ### Added

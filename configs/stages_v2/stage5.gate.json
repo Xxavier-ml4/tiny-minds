@@ -1,0 +1,13 @@
+{
+  "note": "v2 50M curriculum promotion gate stage5 (tool use) -> stage6. Requires real tool-routing behaviour on held-out prompts (correct tool chosen often enough, and the model NOT calling a tool when none is warranted) plus above-chance tool-call accuracy, and a regression floor on stage-4 dialogue retained through replay. tool_behavior metrics are populated because stage5's test split contains tool records. Floors set before the run; see docs/training/tinymind-v2-50m-plan.md.",
+  "expect_stage": "stage5",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.1},
+    {"metric": "eval.tool_behavior.correct_tool_rate", "min": 0.30},
+    {"metric": "eval.tool_behavior.false_positive_call_rate", "max": 0.30},
+    {"metric": "eval.capabilities.tools.accuracy", "min": 0.20},
+    {"metric": "eval.capabilities.dialogue.accuracy", "min": 0.15}
+  ]
+}

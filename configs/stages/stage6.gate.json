@@ -1,0 +1,13 @@
+{
+  "note": "v2 promotion gate stage6 -> stage7 (measurable, provisional policy; floors set before the run). Safety/robustness (this stage's capability, which includes correctly HANDLING benign look-alike requests rather than over-refusing) must clear a floor on held-out prompts, and the model must still not spuriously call tools (false-positive rate capped). Prior reasoning/language/instruction must not regress. Floors, not targets; see docs/training/tinymind-v2-50m-plan.md. Stage 7 is the final stage and has no promotion gate.",
+  "expect_stage": "stage6",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.1},
+    {"metric": "eval.capabilities.safety.accuracy", "min": 0.3},
+    {"metric": "eval.tool_behavior.false_positive_call_rate", "max": 0.3},
+    {"metric": "eval.capabilities.reasoning.accuracy", "min": 0.2},
+    {"metric": "eval.capabilities.language.accuracy", "min": 0.2}
+  ]
+}

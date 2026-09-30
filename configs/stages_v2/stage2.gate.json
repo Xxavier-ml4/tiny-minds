@@ -1,0 +1,12 @@
+{
+  "note": "v2 50M curriculum promotion gate stage2 (reasoning+math) -> stage3. Requires the new stage-2 skills (verifiable arithmetic/word-problem math and multi-step reasoning) above chance on the held-out v2 test split, and a regression floor on the retained stage-1 language skill (kept alive by replay) so promotion is not bought by forgetting. Floors set before the run; see docs/training/tinymind-v2-50m-plan.md.",
+  "expect_stage": "stage2",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.2},
+    {"metric": "eval.capabilities.math.accuracy", "min": 0.20},
+    {"metric": "eval.capabilities.reasoning.accuracy", "min": 0.20},
+    {"metric": "eval.capabilities.language.accuracy", "min": 0.20}
+  ]
+}

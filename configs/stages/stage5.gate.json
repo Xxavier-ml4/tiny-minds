@@ -1,0 +1,13 @@
+{
+  "note": "v2 promotion gate stage5 -> stage6 (measurable, provisional policy; floors set before the run). Tool use is judged by behaviour, not one score: the model must route to the correct tool on a real fraction of held-out tool prompts AND must not call a tool when none is needed (false-positive rate capped). Prior reasoning/knowledge must not regress. Floors, not targets; see docs/training/tinymind-v2-50m-plan.md.",
+  "expect_stage": "stage5",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.1},
+    {"metric": "eval.tool_behavior.correct_tool_rate", "min": 0.3},
+    {"metric": "eval.tool_behavior.false_positive_call_rate", "max": 0.3},
+    {"metric": "eval.capabilities.reasoning.accuracy", "min": 0.2},
+    {"metric": "eval.capabilities.knowledge.accuracy", "min": 0.2}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "note": "v2 50M curriculum promotion gate stage1 (language+grammar) -> stage2. Thresholds are FLOORS set before the demonstration run, not predictions of final quality: validation loss well under the untrained ~6.2 nats/token, and the core stage-1 skills (grammar, free-form language, reading comprehension) above chance on the independently held-out v2 test split. Every metric referenced here is guaranteed present in stage1's test set (see docs/training/tinymind-v2-50m-plan.md). Tighten after the first full-budget runner pass.",
+  "expect_stage": "stage1",
+  "require_stage_complete": true,
+  "require_no_divergence": true,
+  "checks": [
+    {"metric": "summary.final_validation.val_loss", "max": 1.5},
+    {"metric": "eval.capabilities.grammar.accuracy", "min": 0.25},
+    {"metric": "eval.capabilities.language.accuracy", "min": 0.25},
+    {"metric": "eval.capabilities.comprehension.accuracy", "min": 0.20}
+  ]
+}

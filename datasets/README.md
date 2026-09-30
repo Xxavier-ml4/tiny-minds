@@ -22,3 +22,20 @@ dataset`) is real and tested against synthetic examples in `tests/
 test_data.py` and `tests/test_config_and_deferred_subsystems.py`; what's
 missing is the data itself, which is a content question, not a code
 question, and the two are deliberately kept separable.
+
+## v2 (the 50M curriculum)
+
+- `v2/manifest.json`: the default, hermetic dataset manifest. It holds a
+  small committed natural-text sample (`v2/samples/`, CC0, sha256-pinned) and
+  the supplemental synthetic generators.
+- `v2/corpus.manifest.example.json`: how to attach a real corpus. It has
+  sharded public URLs, per-shard sha256 pinning, `auth_env` for private
+  shards, and local paths.
+- `tinymind data prepare-corpus` turns a manifest's `local`/`url` entries into
+  a deduplicated, deterministically split, decontaminated corpus with a
+  provenance manifest.
+- `tinymind data build-curriculum-v2 --corpus` makes that corpus Stage 1's
+  primary data.
+
+Prepared and downloaded corpora are never committed (see `.gitignore`). See
+`docs/training/objective-driven-stages.md`.

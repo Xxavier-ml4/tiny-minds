@@ -23,7 +23,12 @@ class TrainingConfigError(ValueError):
 
 
 _RUNTIME_ONLY = ("stage", "eval_interval", "eval_batches", "checkpoint_interval", "keep_checkpoints",
-                 "log_interval", "max_runtime_seconds", "safety_margin_seconds", "nonfinite_policy", "epochs")
+                 "log_interval", "max_runtime_seconds", "safety_margin_seconds", "nonfinite_policy", "epochs",
+                 # target_tokens (v2 token-budget training) does not enter the trajectory hash directly:
+                 # the engine derives a step horizon from it and that horizon is captured by ``total_steps``
+                 # in ``compat_dict``. Excluding the raw field avoids double-counting while still refusing a
+                 # resume whose budget (hence total_steps) differs. See TrainingConfig.target_tokens.
+                 "target_tokens")
 
 
 @dataclasses.dataclass
@@ -47,8 +52,11 @@ class TrainingConfig:
     max_seq_len: int = 256
     packing: bool = True
     overflow: str = "error"
-    # length: max_steps > 0 wins; otherwise ``epochs`` full epochs
+    # length: max_steps > 0 wins; otherwise, if target_tokens > 0 the engine
+    # derives a step horizon from the token budget (v2 token-budget training —
+    # brief section 6); otherwise ``epochs`` full epochs.
     max_steps: int = 0
+    target_tokens: int = 0
     epochs: int = 1
     # data mixture: {source name: weight}; empty = every source equally weighted
     mixture: dict[str, float] = dataclasses.field(default_factory=dict)
@@ -75,8 +83,10 @@ class TrainingConfig:
             problems.append("gradient_accumulation_steps must be >= 1")
         if self.max_seq_len < 8:
             problems.append("max_seq_len must be >= 8")
-        if self.max_steps < 0 or self.epochs < 0 or (self.max_steps == 0 and self.epochs == 0):
-            problems.append("need max_steps > 0 or epochs > 0")
+        if self.target_tokens < 0:
+            problems.append("target_tokens must be >= 0 (0 = not token-budgeted)")
+        if self.max_steps < 0 or self.epochs < 0 or (self.max_steps == 0 and self.epochs == 0 and self.target_tokens == 0):
+            problems.append("need max_steps > 0, target_tokens > 0, or epochs > 0")
         if not (0.0 < self.learning_rate) or not (0.0 <= self.min_learning_rate <= self.learning_rate):
             problems.append("need 0 <= min_learning_rate <= learning_rate, learning_rate > 0")
         if self.scheduler not in ("cosine", "linear", "constant"):

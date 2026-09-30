@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "note": "TinyMind v2 seven-stage curriculum configuration (brief sections 4-6). Read by tinymind.data.curriculum_v2.load_manifest. 'primary' names the capability sources being taught this stage; 'replay' names earlier capabilities to keep, drawn within 'replay_fraction'. effective_mixture() normalises primary to (1 - replay_fraction) and replay to replay_fraction, summing to 1.0. 'target_tokens' is the stage token budget passed to the trainer (brief section 6); 'examples_per_source' only sizes the generated dataset, not training length. Every number here is a policy knob: change it and re-run build-curriculum-v2, no code change. 'corpus' applies only when build-curriculum-v2 is given a prepared real corpus (--corpus, from 'tinymind data prepare-corpus'): 'byte_share' is the share of the stage's training TEXT drawn from that natural corpus (Stage 1: natural text is the PRIMARY data and the synthetic sources a supplement; later stages: a small natural-text replay that keeps language measurable on held-out natural text); 'val_records'/'test_records' cap the natural held-out sets; 'lexicon_words' sizes the known-word lexicon used by the stage objectives.",
+  "total_target_tokens": 345000000,
+  "examples_per_source": 600,
+  "stages": {
+    "stage1": {
+      "purpose": "language + grammar: general language behaviour before any specialisation",
+      "target_tokens": 60000000,
+      "learning_rate": 0.0006,
+      "min_learning_rate": 0.00006,
+      "replay_fraction": 0.0,
+      "primary": {"language": 0.45, "grammar": 0.35, "comprehension": 0.20},
+      "corpus": {"byte_share": 0.8, "val_records": 400, "test_records": 400, "lexicon_words": 50000},
+      "replay": {}
+    },
+    "stage2": {
+      "purpose": "reasoning + mathematics: multi-step reasoning and verified arithmetic",
+      "target_tokens": 60000000,
+      "learning_rate": 0.0005,
+      "min_learning_rate": 0.00005,
+      "replay_fraction": 0.15,
+      "primary": {"reasoning": 0.55, "math": 0.45},
+      "corpus": {"byte_share": 0.1, "val_records": 200, "test_records": 200, "lexicon_words": 50000},
+      "replay": {"language": 1.0}
+    },
+    "stage3": {
+      "purpose": "knowledge + comprehension: extract and use information from passages",
+      "target_tokens": 60000000,
+      "learning_rate": 0.0005,
+      "min_learning_rate": 0.00005,
+      "replay_fraction": 0.25,
+      "primary": {"knowledge": 0.60, "comprehension": 0.25, "extraction": 0.15},
+      "corpus": {"byte_share": 0.1, "val_records": 200, "test_records": 200, "lexicon_words": 50000},
+      "replay": {"reasoning": 0.40, "language": 0.40, "dialogue": 0.20}
+    },
+    "stage4": {
+      "purpose": "instruction + dialogue: reliable conversational assistant behaviour",
+      "target_tokens": 45000000,
+      "learning_rate": 0.0004,
+      "min_learning_rate": 0.00004,
+      "replay_fraction": 0.25,
+      "primary": {"instruction": 0.60, "dialogue": 0.40},
+      "corpus": {"byte_share": 0.1, "val_records": 200, "test_records": 200, "lexicon_words": 50000},
+      "replay": {"reasoning": 0.40, "language": 0.40, "knowledge": 0.20}
+    },
+    "stage5": {
+      "purpose": "tool use: whether, which, arguments, result use, and when NOT to call",
+      "target_tokens": 45000000,
+      "learning_rate": 0.0004,
+      "min_learning_rate": 0.00004,
+      "replay_fraction": 0.25,
+      "primary": {"tools": 1.0},
+      "corpus": {"byte_share": 0.1, "val_records": 200, "test_records": 200, "lexicon_words": 50000},
+      "replay": {"reasoning": 0.40, "language": 0.20, "dialogue": 0.20, "knowledge": 0.20}
+    },
+    "stage6": {
+      "purpose": "safety + robustness: predictable behaviour under ambiguous/adversarial input, and correct handling of benign lookalikes",
+      "target_tokens": 25000000,
+      "learning_rate": 0.0003,
+      "min_learning_rate": 0.00003,
+      "replay_fraction": 0.30,
+      "primary": {"safety": 1.0},
+      "corpus": {"byte_share": 0.1, "val_records": 200, "test_records": 200, "lexicon_words": 50000},
+      "replay": {"language": 0.25, "reasoning": 0.25, "tools": 0.25, "instruction": 0.25}
+    },
+    "stage7": {
+      "purpose": "integration + refinement: reconcile all capabilities; no new capability",
+      "target_tokens": 50000000,
+      "learning_rate": 0.0003,
+      "min_learning_rate": 0.00003,
+      "replay_fraction": 0.15,
+      "primary": {"integration": 1.0},
+      "corpus": {"byte_share": 0.1, "val_records": 200, "test_records": 200, "lexicon_words": 50000},
+      "replay": {"language": 0.20, "reasoning": 0.20, "knowledge": 0.15, "math": 0.10,
+                 "instruction": 0.10, "dialogue": 0.05, "tools": 0.12, "safety": 0.08}
+    }
+  }
+}
