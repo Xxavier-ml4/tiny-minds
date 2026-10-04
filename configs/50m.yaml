@@ -41,7 +41,7 @@ model:
   # docs/training/degeneration-and-memorization.md. It is part of the config
   # hash: a checkpoint resumes only under the rate it was trained with (so decide
   # before a stage starts, not in the middle of one).
-  dropout: 0.0
+  dropout: 0.05
 
 # The profile explicitly names its tokenizer (v2 requirement). vocab_size 16000
 # needs a learned tokenizer: train one with
