@@ -75,26 +75,31 @@ class StageObjectiveError(ValueError):
 
 # --------------------------------------------------------------------------- generation
 def generate_continuations(model: Any, tokenizer: Any, prompts: Sequence[str], *, max_new_tokens: int = 48,
-                           repetition_penalty: float = 1.0, no_repeat_ngram_size: int = 0
-                           ) -> list[dict[str, Any]]:
-    """Greedy (deterministic) continuation of each prompt on the live model.
+                           repetition_penalty: float = 1.0, no_repeat_ngram_size: int = 0,
+                           temperature: float = 0.0, top_k: int | None = None, top_p: float | None = None,
+                           seed: int | None = None) -> list[dict[str, Any]]:
+    """Greedy (deterministic) continuation of each prompt on the live model; with ``temperature > 0`` a SEEDED
+    sample instead (prompt ``i`` uses ``seed + i``, default seed 0, so a measurement is still reproducible).
     Returns, per prompt, the exact prompt, the raw generated text, the number of
     tokens generated and whether generation stopped on EOS or ran out of room —
     kept verbatim for the report.
 
-    The two decoding arguments default to "off", and the GATED measurements always use that default: the
-    objective judges what the model itself does under plain greedy decoding. A repetition penalty or n-gram
-    ban hides a model's looping rather than curing it, so letting either into a gate would let a looping
-    model pass its own looping check. They exist for the separate, non-gating ``generation_decoded``
-    diagnostic (see :meth:`StageObjective.evaluate_checkpoint`)."""
+    Every decoding argument defaults to "off", and a stage's gated measurements use that default (plain greedy)
+    unless its objective explicitly sets ``generation.gated_decoding`` (the report then says so in its
+    headings). A repetition penalty or n-gram ban hides a model's looping rather than curing it, so they are
+    best kept to the non-gating ``generation_decoded`` diagnostic
+    (see :meth:`StageObjective.evaluate_checkpoint`)."""
     from tinymind.model.generation import ModelGenerationConfig, generate_with_cache_ids
 
     rows: list[dict[str, Any]] = []
     eos = tokenizer.eos_token_id
-    for prompt in prompts:
+    for i, prompt in enumerate(prompts):
         ids = tokenizer.encode(prompt, add_bos=True)
-        cfg = ModelGenerationConfig(max_new_tokens=max_new_tokens, do_sample=False, eos_token_id=eos,
-                                    repetition_penalty=repetition_penalty, no_repeat_ngram_size=no_repeat_ngram_size)
+        sampling = ({"do_sample": True, "temperature": temperature, "top_k": top_k, "top_p": top_p,
+                     "seed": (0 if seed is None else seed) + i} if temperature > 0 else {"do_sample": False})
+        cfg = ModelGenerationConfig(max_new_tokens=max_new_tokens, eos_token_id=eos,
+                                    repetition_penalty=repetition_penalty, no_repeat_ngram_size=no_repeat_ngram_size,
+                                    **sampling)
         out = generate_with_cache_ids(model, np.array([ids]), cfg)
         new_ids = [int(t) for t in out[0][len(ids):]]
         stopped = bool(new_ids) and new_ids[-1] == eos
@@ -270,7 +275,8 @@ class StageObjective:
         self.max_new_tokens = int(gen.get("max_new_tokens", 48))
         if self.max_new_tokens < 1:
             raise StageObjectiveError(f"objective {self.stage!r}: generation.max_new_tokens must be >= 1")
-        self.diagnostic_decoding = self._parse_diagnostic_decoding(gen.get("diagnostic_decoding"))
+        self.diagnostic_decoding = self._parse_decoding(gen.get("diagnostic_decoding"), "diagnostic_decoding")
+        self.gated_decoding = self._parse_decoding(gen.get("gated_decoding"), "gated_decoding")
         self.measurements = [dict(m) for m in config.get("measurements", [])]
         if not self.measurements:
             raise StageObjectiveError(f"objective {self.stage!r} has no 'measurements'")
@@ -294,24 +300,48 @@ class StageObjective:
             for item in config.get("retain", []) or []:
                 self.retained.append(self._resolve_retained(item))
 
-    def _parse_diagnostic_decoding(self, spec: Any) -> dict[str, Any] | None:
-        """``generation.diagnostic_decoding`` (optional): {``repetition_penalty``, ``no_repeat_ngram_size``}.
-        When present, every checkpoint also generates from the same prompts with that decoding and reports
-        it under ``metrics.generation_decoded`` — informational only; no measurement may reference it."""
+    def _parse_decoding(self, spec: Any, key: str) -> dict[str, Any] | None:
+        """``generation.<key>`` (``diagnostic_decoding`` or ``gated_decoding``), optional: any of
+        ``repetition_penalty`` (> 0), ``no_repeat_ngram_size`` (>= 0), ``temperature`` (>= 0; > 0 means seeded
+        sampling) and, only with a temperature, ``top_k`` (>= 1), ``top_p`` (in (0, 1]) and ``seed`` (>= 0, default 0).
+        Returned normalised: the first two always, the sampling keys only when sampling.
+
+        ``diagnostic_decoding``: every checkpoint also generates from the same prompts this way and reports it under
+        ``metrics.generation_decoded`` — informational only; no measurement may reference it.
+        ``gated_decoding``: the decoding the GATED measurements use (default: plain greedy). Opting in changes what the
+        gate means, so the report names it in its headings."""
         if spec is None:
             return None
-        allowed = {"repetition_penalty", "no_repeat_ngram_size"}
+        where = f"objective {self.stage!r}: generation.{key}"
+        allowed = {"repetition_penalty", "no_repeat_ngram_size", "temperature", "top_k", "top_p", "seed"}
         if not isinstance(spec, Mapping) or not spec or set(spec) - allowed:
-            raise StageObjectiveError(f"objective {self.stage!r}: generation.diagnostic_decoding must be an object "
-                                      f"with some of {sorted(allowed)}")
-        out = {"repetition_penalty": float(spec.get("repetition_penalty", 1.0)),
-               "no_repeat_ngram_size": int(spec.get("no_repeat_ngram_size", 0))}
-        if out["repetition_penalty"] <= 0 or out["no_repeat_ngram_size"] < 0:
-            raise StageObjectiveError(f"objective {self.stage!r}: diagnostic_decoding needs repetition_penalty > 0 "
-                                      "and no_repeat_ngram_size >= 0")
-        if out["repetition_penalty"] == 1.0 and out["no_repeat_ngram_size"] == 0:
-            raise StageObjectiveError(f"objective {self.stage!r}: diagnostic_decoding changes nothing (penalty 1.0, "
-                                      "no n-gram ban); remove it or set a real value")
+            raise StageObjectiveError(f"{where} must be an object with some of {sorted(allowed)}")
+        try:
+            penalty = float(spec.get("repetition_penalty", 1.0))
+            ngram = int(spec.get("no_repeat_ngram_size", 0))
+            temperature = float(spec.get("temperature", 0.0))
+            top_k = None if spec.get("top_k") is None else int(spec["top_k"])
+            top_p = None if spec.get("top_p") is None else float(spec["top_p"])
+            seed = None if spec.get("seed") is None else int(spec["seed"])
+        except (TypeError, ValueError) as exc:
+            raise StageObjectiveError(f"{where}: {exc}") from None
+        if penalty <= 0 or ngram < 0 or temperature < 0:
+            raise StageObjectiveError(f"{where} needs repetition_penalty > 0, no_repeat_ngram_size >= 0 and temperature >= 0")
+        if temperature == 0 and (top_k is not None or top_p is not None or seed is not None):
+            raise StageObjectiveError(f"{where}: top_k / top_p / seed only apply when temperature > 0 (sampling)")
+        if top_k is not None and top_k < 1 or top_p is not None and not 0 < top_p <= 1 or seed is not None and seed < 0:
+            raise StageObjectiveError(f"{where} needs top_k >= 1, 0 < top_p <= 1 and seed >= 0")
+        if penalty == 1.0 and ngram == 0 and temperature == 0:
+            raise StageObjectiveError(f"{where} changes nothing (penalty 1.0, no n-gram ban, no sampling); remove it "
+                                      "or set a real value")
+        out: dict[str, Any] = {"repetition_penalty": penalty, "no_repeat_ngram_size": ngram}
+        if temperature > 0:
+            out["temperature"] = temperature
+            if top_k is not None:
+                out["top_k"] = top_k
+            if top_p is not None:
+                out["top_p"] = top_p
+            out["seed"] = 0 if seed is None else seed
         return out
 
     def _resolve_retained(self, item: Any) -> "StageObjective":
@@ -373,8 +403,8 @@ class StageObjective:
         promoted. A ``baseline`` report (before any training in this run) is
         informational and never promotes. ``lexicon`` is the set of known words
         of the training corpus (for ``grammar.known_word_fraction``)."""
-        rows = generate_continuations(model, tokenizer, self.prompts, max_new_tokens=self.max_new_tokens) \
-            if self.prompts else []
+        rows = generate_continuations(model, tokenizer, self.prompts, max_new_tokens=self.max_new_tokens,
+                                      **(self.gated_decoding or {})) if self.prompts else []
         metrics = {"loss": {k: held_out.get(k) for k in _LOSS_KEYS if k in held_out},
                    "generation": generation_metrics(rows), "grammar": grammar_metrics(rows, lexicon),
                    "data": dict(data or {})}
@@ -389,7 +419,8 @@ class StageObjective:
         checks = [_apply(spec, metrics) for spec in self.measurements]
         retained: dict[str, Any] = {}
         for obj in self.retained:
-            r_rows = generate_continuations(model, tokenizer, obj.prompts, max_new_tokens=obj.max_new_tokens)
+            r_rows = generate_continuations(model, tokenizer, obj.prompts, max_new_tokens=obj.max_new_tokens,
+                                            **(obj.gated_decoding or {}))
             r_metrics = {"generation": generation_metrics(r_rows), "grammar": grammar_metrics(r_rows, lexicon)}
             r_checks = [_apply(spec, r_metrics) for spec in obj.capability_measurements()]
             retained[obj.stage] = {"metrics": r_metrics, "generations": r_rows, "checks": r_checks,
@@ -406,6 +437,8 @@ class StageObjective:
         }
         if decoded_rows is not None:
             report["generations_decoded"] = decoded_rows  # diagnostic only (see above)
+        if self.gated_decoding:
+            report["gated_decoding"] = dict(self.gated_decoding)  # the gate is NOT plain greedy: say so in the report
         regression = compare_reports(report, previous, self.regression, reference=reference)
         reasons: list[str] = []
         if baseline:
@@ -568,6 +601,24 @@ def _generation_block(rows: Sequence[Mapping[str, Any]]) -> list[str]:
     return lines
 
 
+def describe_decoding(d: Mapping[str, Any] | None) -> str:
+    """Human-readable decoding settings ("greedy decoding" for ``None``/empty)."""
+    if not d:
+        return "greedy decoding"
+    parts = ([f"seeded sampling, temperature {d['temperature']:g}"] if d.get("temperature", 0) > 0 else ["greedy"])
+    if d.get("top_k"):
+        parts.append(f"top-k {d['top_k']}")
+    if d.get("top_p"):
+        parts.append(f"top-p {d['top_p']:g}")
+    if d.get("temperature", 0) > 0:
+        parts.append(f"seed {d.get('seed', 0)}")
+    if d.get("repetition_penalty", 1.0) != 1.0:
+        parts.append(f"repetition penalty {d['repetition_penalty']:g}")
+    if d.get("no_repeat_ngram_size", 0):
+        parts.append(f"no-repeat {d['no_repeat_ngram_size']}-gram")
+    return ", ".join(parts)
+
+
 def render_markdown(report: Mapping[str, Any], previous: Mapping[str, Any] | None = None) -> str:
     """GitHub-visible Markdown for one checkpoint: step/tokens, held-out loss and
     perplexity (and natural-text bits per byte), generation statistics, grammar
@@ -609,7 +660,8 @@ def render_markdown(report: Mapping[str, Any], previous: Mapping[str, Any] | Non
     lines.append("")
 
     gen = m["generation"]
-    lines += ["### Generation statistics (fixed prompts, greedy decoding)", "",
+    gated = report.get("gated_decoding")
+    lines += [f"### Generation statistics (fixed prompts, {describe_decoding(gated)})", "",
               "| metric | value | Δ vs previous checkpoint |", "|---|---|---|"]
     for key, label in (("non_empty_rate", "non-empty rate"), ("mean_repetition", "mean repetition (char 6-grams)"),
                        ("looping_rate", "looping rate (repetition > 0.5)"), ("mean_distinct_1", "distinct-1"),
@@ -621,11 +673,11 @@ def render_markdown(report: Mapping[str, Any], previous: Mapping[str, Any] | Non
     dec = m.get("generation_decoded")
     if dec:
         d = dec.get("decoding", {})
-        lines += [f"### Diagnostic (NOT gated): same prompts, decoding-mitigated "
-                  f"(repetition penalty {d.get('repetition_penalty')}, no-repeat n-gram {d.get('no_repeat_ngram_size')})",
-                  "", "If these are healthy while the raw greedy numbers above loop, the model is fine and greedy "
+        lines += [f"### Diagnostic (NOT gated): same prompts, decoding-mitigated ({describe_decoding(d)})",
+                  "", "If these are healthy while the gated numbers above loop, the model is fine and the gated "
                   "decoding is the problem; if these are bad too, the model itself is broken.", "",
-                  "| metric | decoding-mitigated | raw greedy (gated) |", "|---|---|---|"]
+                  f"| metric | decoding-mitigated | {'gated decoding' if gated else 'raw greedy (gated)'} |",
+                  "|---|---|---|"]
         for key, label in (("mean_repetition", "mean repetition (char 6-grams)"),
                            ("looping_rate", "looping rate (repetition > 0.5)"), ("mean_distinct_2", "distinct-2")):
             lines.append(f"| {label} | {_fmt(dec.get(key))} | {_fmt(gen.get(key))} |")

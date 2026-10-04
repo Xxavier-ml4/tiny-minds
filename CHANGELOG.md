@@ -27,8 +27,11 @@ Each item was checked against the code first; what the review got wrong is recor
   flags `--no-repeat-ngram-size`, `--repetition-penalty`, `--top-k`, `--top-p`, `--seed` (the CLI previously exposed
   only `--temperature`). Defaults are unchanged: plain deterministic greedy.
 - **Non-gating `generation_decoded` diagnostic** in stage reports (`generation.diagnostic_decoding`, enabled in
-  `stage1.objective.json`): the same fixed prompts under a repetition penalty and a 3-gram ban, shown beside the raw
-  greedy numbers. No measurement may reference it.
+  `stage1.objective.json` as seeded sampling at temperature 0.7 / top-p 0.9 plus a 3-gram ban): the same fixed prompts
+  under mitigated decoding, shown beside the gated numbers. No measurement may reference it.
+- **Sampling in the objective's decoding blocks** (`temperature`, `top_p`, `top_k`, `seed`; seeded, so measurements
+  stay reproducible) and an **opt-in `generation.gated_decoding`** for stages that choose to gate on something other
+  than plain greedy. Off by default; when set the report names the decoding in its headings.
 - `docs/training/degeneration-and-memorization.md`; tests `test_dropout.py`, `test_dropout_training.py`,
   `test_decoding_controls.py`, `test_objective_diagnostic.py`.
 
@@ -44,8 +47,8 @@ Each item was checked against the code first; what the review got wrong is recor
 - **Cross-document loss masking**: already implemented and tested (`collate_packed` requires `labels[0] == -100`;
   block-diagonal attention via `segment_ids`; RoPE positions restart per segment; see
   `test_packed_loss_equals_sum_of_individual_losses`). Nothing to fix.
-- **The stage gate still measures raw greedy output.** A repetition penalty in the gate would let a model that loops
-  pass `generation_not_looping`.
+- **The stage gate still measures raw greedy output by default** (`gated_decoding` is opt-in). A repetition penalty in
+  the gate would let a model that loops pass `generation_not_looping`.
 - **`configs/50m.yaml` keeps `dropout: 0.0`.** At a budget of a few passes over the data a 50M model is
   training-limited, not data-limited, and dropout slows it; it is also part of the model-config hash, so enabling it
   makes existing checkpoints unresumable. Turn it on at the start of a stage if the new diagnostics show memorization.

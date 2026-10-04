@@ -35,7 +35,7 @@ behaviour of a young model under greedy decoding. Stage 1's 60M-token budget is 
 * **`[eval] WARNING ... memorizing`** (`memorization_signal`): at each of the last 2 evaluations validation loss rose
   *and* training loss fell. A single noisy evaluation does not trigger it.
 * **Stage reports**: stages whose objective sets `generation.diagnostic_decoding` (stage 1 does) also generate from the
-  same fixed prompts with a repetition penalty (1.15) and a 3-gram ban, reported as
+  same fixed prompts with seeded sampling (temperature 0.7, top-p 0.9) and a 3-gram ban, reported as
   `metrics.generation_decoded` beside the raw numbers. **It is never gated**; see below.
 
 ## Why the stage gate stays on raw greedy output
@@ -46,6 +46,28 @@ done" means the model itself no longer loops. So the gated measurements always u
 (`generate_continuations` defaults), and no measurement may reference `generation_decoded` (the objective loader
 rejects it). Read the two side by side: healthy decoded text with a looping raw decode means a decoding problem;
 bad decoded text too means a model problem.
+
+## Where decoding is set in the CI run
+
+The GitHub workflow sets no decoding. Everything the stage report generates is decided in
+`configs/stages_v2/<stage>.objective.json`, block `generation`, executed by `tinymind/training/objective.py`:
+
+| key | what it controls | default |
+|---|---|---|
+| *(none)* | the **gated** measurements | plain greedy decoding |
+| `diagnostic_decoding` | the extra, **never-gated** `generation_decoded` section | off (stage 1 sets it) |
+| `gated_decoding` | the decoding the **gated** measurements use | off = greedy |
+
+Both blocks take any of `temperature` (> 0 = seeded sampling), `top_p`, `top_k`, `seed` (default 0; prompt *i* uses
+`seed + i`, so a measurement is reproducible), `repetition_penalty` and `no_repeat_ngram_size`. `top_p`/`top_k`/`seed`
+need a temperature. Stage 1 currently ships
+`"diagnostic_decoding": {"temperature": 0.7, "top_p": 0.9, "no_repeat_ngram_size": 3, "seed": 0}`.
+
+Opting in to `gated_decoding` changes what "the stage is done" means, so the report names the decoding in its headings
+(`fixed prompts, seeded sampling, temperature 0.7, ...`). If you do, prefer sampling **without** an n-gram ban, e.g.
+`"gated_decoding": {"temperature": 0.7, "top_p": 0.9, "seed": 0}`: with a ban the looping and distinct-2 numbers are
+close to guaranteed by construction, so they would stop measuring the model. The thresholds in the objective were set
+for greedy output, so expect to recalibrate them.
 
 ## Decoding controls (for using a model, not for gating it)
 
