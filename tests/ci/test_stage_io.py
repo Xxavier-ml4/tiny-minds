@@ -101,7 +101,8 @@ class TestStageHandoff(unittest.TestCase):
     def test_full_three_stage_chain_with_an_interrupted_stage(self):
         m1, _ = verify_bundle(self.b1)
         self.assertEqual((m1["stage"], m1["global_step"], m1["stage_complete"]), ("stage1", 5, False))
-        self.assertEqual(m1["artifact_name"].rsplit("-", 1)[0], "tinymind-ci_tiny-stage1-step000005")
+        # the suffix is a git sha7 in CI, but this helper's run id is "run-b1" (it has a hyphen), so match the prefix
+        self.assertTrue(m1["artifact_name"].startswith("tinymind-ci_tiny-stage1-step000005-"), m1["artifact_name"])
         m2, _ = verify_bundle(self.b2)
         self.assertEqual((m2["global_step"], m2["stage_complete"]), (12, True))
         self.assertEqual(json.loads((self.b2 / "training_summary.json").read_text())["resumed_from"].split("/")[-1], "step-00000005")

@@ -31,6 +31,17 @@ model:
   rope_theta: 10000.0
   tie_embeddings: true
   sliding_window: 0
+  # Training-time dropout on attention probabilities, attention output and MLP
+  # output; 0.0 = off. Off on purpose: with a corpus large enough that no source
+  # is seen more than ~4 times, a 50M model is limited by training, not by
+  # memorization, and dropout only slows it down. Raise it (0.05-0.1) when the
+  # run's OWN diagnostics say memorization is happening -- a "[data] WARNING ...
+  # seen N times" line at start-up, or "[eval] WARNING: ... memorizing" (a train/
+  # val gap that keeps widening while val loss rises). See
+  # docs/training/degeneration-and-memorization.md. It is part of the config
+  # hash: a checkpoint resumes only under the rate it was trained with (so decide
+  # before a stage starts, not in the middle of one).
+  dropout: 0.0
 
 # The profile explicitly names its tokenizer (v2 requirement). vocab_size 16000
 # needs a learned tokenizer: train one with

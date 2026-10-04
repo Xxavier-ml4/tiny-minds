@@ -298,6 +298,21 @@ class DataPlan:
         overfitting risk worth a look)."""
         return {s.name: round(q / len(s.dataset), 3) for s, q in zip(self.sources, self._quotas)}
 
+    def planned_passes(self, micro_batches_to_train: int) -> dict[str, float]:
+        """How many times each source's examples are seen over a WHOLE run of
+        ``micro_batches_to_train`` micro-batches: ``repeat_factor x epochs``.
+
+        ``repeat_factors`` alone hides the dangerous case. A token-budget stage
+        keeps starting new epochs until the budget is spent, so a stage whose
+        budget is many times the corpus size repeats everything many times, and
+        the per-epoch factor of a small synthetic source that is up-weighted in
+        the mixture multiplies on top of that. A 50M-parameter model that sees a
+        passage a dozen times can memorize it, which is the textbook cause of
+        fluent-but-looping greedy output."""
+        per_epoch = max(self.num_micro_batches(0), 1)
+        epochs = micro_batches_to_train / per_epoch
+        return {name: round(factor * epochs, 2) for name, factor in self.repeat_factors().items()}
+
 
 # --------------------------------------------------------------------------
 # sequential evaluation batches

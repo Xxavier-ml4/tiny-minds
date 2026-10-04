@@ -74,19 +74,27 @@ class StageObjectiveError(ValueError):
 
 
 # --------------------------------------------------------------------------- generation
-def generate_continuations(model: Any, tokenizer: Any, prompts: Sequence[str], *, max_new_tokens: int = 48
+def generate_continuations(model: Any, tokenizer: Any, prompts: Sequence[str], *, max_new_tokens: int = 48,
+                           repetition_penalty: float = 1.0, no_repeat_ngram_size: int = 0
                            ) -> list[dict[str, Any]]:
     """Greedy (deterministic) continuation of each prompt on the live model.
     Returns, per prompt, the exact prompt, the raw generated text, the number of
     tokens generated and whether generation stopped on EOS or ran out of room —
-    kept verbatim for the report."""
+    kept verbatim for the report.
+
+    The two decoding arguments default to "off", and the GATED measurements always use that default: the
+    objective judges what the model itself does under plain greedy decoding. A repetition penalty or n-gram
+    ban hides a model's looping rather than curing it, so letting either into a gate would let a looping
+    model pass its own looping check. They exist for the separate, non-gating ``generation_decoded``
+    diagnostic (see :meth:`StageObjective.evaluate_checkpoint`)."""
     from tinymind.model.generation import ModelGenerationConfig, generate_with_cache_ids
 
     rows: list[dict[str, Any]] = []
     eos = tokenizer.eos_token_id
     for prompt in prompts:
         ids = tokenizer.encode(prompt, add_bos=True)
-        cfg = ModelGenerationConfig(max_new_tokens=max_new_tokens, do_sample=False, eos_token_id=eos)
+        cfg = ModelGenerationConfig(max_new_tokens=max_new_tokens, do_sample=False, eos_token_id=eos,
+                                    repetition_penalty=repetition_penalty, no_repeat_ngram_size=no_repeat_ngram_size)
         out = generate_with_cache_ids(model, np.array([ids]), cfg)
         new_ids = [int(t) for t in out[0][len(ids):]]
         stopped = bool(new_ids) and new_ids[-1] == eos
@@ -262,6 +270,7 @@ class StageObjective:
         self.max_new_tokens = int(gen.get("max_new_tokens", 48))
         if self.max_new_tokens < 1:
             raise StageObjectiveError(f"objective {self.stage!r}: generation.max_new_tokens must be >= 1")
+        self.diagnostic_decoding = self._parse_diagnostic_decoding(gen.get("diagnostic_decoding"))
         self.measurements = [dict(m) for m in config.get("measurements", [])]
         if not self.measurements:
             raise StageObjectiveError(f"objective {self.stage!r} has no 'measurements'")
@@ -284,6 +293,26 @@ class StageObjective:
         if resolve_retain:
             for item in config.get("retain", []) or []:
                 self.retained.append(self._resolve_retained(item))
+
+    def _parse_diagnostic_decoding(self, spec: Any) -> dict[str, Any] | None:
+        """``generation.diagnostic_decoding`` (optional): {``repetition_penalty``, ``no_repeat_ngram_size``}.
+        When present, every checkpoint also generates from the same prompts with that decoding and reports
+        it under ``metrics.generation_decoded`` — informational only; no measurement may reference it."""
+        if spec is None:
+            return None
+        allowed = {"repetition_penalty", "no_repeat_ngram_size"}
+        if not isinstance(spec, Mapping) or not spec or set(spec) - allowed:
+            raise StageObjectiveError(f"objective {self.stage!r}: generation.diagnostic_decoding must be an object "
+                                      f"with some of {sorted(allowed)}")
+        out = {"repetition_penalty": float(spec.get("repetition_penalty", 1.0)),
+               "no_repeat_ngram_size": int(spec.get("no_repeat_ngram_size", 0))}
+        if out["repetition_penalty"] <= 0 or out["no_repeat_ngram_size"] < 0:
+            raise StageObjectiveError(f"objective {self.stage!r}: diagnostic_decoding needs repetition_penalty > 0 "
+                                      "and no_repeat_ngram_size >= 0")
+        if out["repetition_penalty"] == 1.0 and out["no_repeat_ngram_size"] == 0:
+            raise StageObjectiveError(f"objective {self.stage!r}: diagnostic_decoding changes nothing (penalty 1.0, "
+                                      "no n-gram ban); remove it or set a real value")
+        return out
 
     def _resolve_retained(self, item: Any) -> "StageObjective":
         if isinstance(item, Mapping):
@@ -349,6 +378,14 @@ class StageObjective:
         metrics = {"loss": {k: held_out.get(k) for k in _LOSS_KEYS if k in held_out},
                    "generation": generation_metrics(rows), "grammar": grammar_metrics(rows, lexicon),
                    "data": dict(data or {})}
+        # Diagnostic only: the same prompts under repetition-mitigating decoding. Never gated, never part of
+        # the verdict, the regression checks or the retained checks; it answers "is this a decoding artifact
+        # or a broken model?" (compare it with the raw greedy numbers above it).
+        decoded_rows: list[dict[str, Any]] | None = None
+        if self.prompts and self.diagnostic_decoding:
+            decoded_rows = generate_continuations(model, tokenizer, self.prompts, max_new_tokens=self.max_new_tokens,
+                                                  **self.diagnostic_decoding)
+            metrics["generation_decoded"] = {**generation_metrics(decoded_rows), "decoding": dict(self.diagnostic_decoding)}
         checks = [_apply(spec, metrics) for spec in self.measurements]
         retained: dict[str, Any] = {}
         for obj in self.retained:
@@ -367,6 +404,8 @@ class StageObjective:
             "generations": rows,  # the exact fixed prompts and the model's raw output, verbatim
             "retained": retained,
         }
+        if decoded_rows is not None:
+            report["generations_decoded"] = decoded_rows  # diagnostic only (see above)
         regression = compare_reports(report, previous, self.regression, reference=reference)
         reasons: list[str] = []
         if baseline:
@@ -579,6 +618,19 @@ def render_markdown(report: Mapping[str, Any], previous: Mapping[str, Any] | Non
         lines.append(f"| {label} | {_fmt(gen.get(key))} | {delta('generation.' + key)} |")
     lines.append("")
 
+    dec = m.get("generation_decoded")
+    if dec:
+        d = dec.get("decoding", {})
+        lines += [f"### Diagnostic (NOT gated): same prompts, decoding-mitigated "
+                  f"(repetition penalty {d.get('repetition_penalty')}, no-repeat n-gram {d.get('no_repeat_ngram_size')})",
+                  "", "If these are healthy while the raw greedy numbers above loop, the model is fine and greedy "
+                  "decoding is the problem; if these are bad too, the model itself is broken.", "",
+                  "| metric | decoding-mitigated | raw greedy (gated) |", "|---|---|---|"]
+        for key, label in (("mean_repetition", "mean repetition (char 6-grams)"),
+                           ("looping_rate", "looping rate (repetition > 0.5)"), ("mean_distinct_2", "distinct-2")):
+            lines.append(f"| {label} | {_fmt(dec.get(key))} | {_fmt(gen.get(key))} |")
+        lines.append("")
+
     gram = m["grammar"]
     lines += ["### Grammar and language checks", "", "| metric | value | Δ vs previous checkpoint |", "|---|---|---|"]
     for key, label in (("word_like_fraction", "word-like tokens"),
@@ -627,6 +679,9 @@ def render_markdown(report: Mapping[str, Any], previous: Mapping[str, Any] | Non
     lines.append("")
 
     lines += ["### Fixed prompts and raw generations (verbatim)", ""] + _generation_block(report["generations"])
+    if report.get("generations_decoded"):
+        lines += ["<details><summary>Same prompts with decoding mitigation (diagnostic only, not gated)</summary>", ""]
+        lines += _generation_block(report["generations_decoded"]) + ["</details>", ""]
     lines += ["---", "",
               "Raw generations are shown exactly as decoded (control characters other than newline and tab appear "
               "as \\xNN escapes); the JSON report next to this file holds the exact text. Promotion is decided by "

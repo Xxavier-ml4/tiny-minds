@@ -64,11 +64,13 @@ Extended the existing `tinymind.model.config.ModelConfig`
 (`docs/architecture/tinymind-design.md` section 8) rather than
 duplicating it, per the brief's own instruction to reuse existing
 interfaces. Added: `norm_epsilon` (float, default `1e-6`), `dropout`
-(float, default `0.0` — accepted for forward compatibility; not yet wired
-into any layer's forward pass, since a 20-50M-parameter model trained on a
-handful of synthetic examples has no overfitting problem for dropout to
-solve — wiring it in is a one-line change to `SwiGLUMLP`/attention's
-forward when a real dataset makes it relevant), and `dtype` (string,
+(float, default `0.0`; **implemented** since the anti-looping change: it
+applies to the attention probabilities, the attention output and the MLP
+output (GPT-2 placement), in both the fused kernel and the reference path,
+and only when the trainer passes a `dropout_rng` to `forward` — there is
+deliberately no train/eval flag, so evaluation, generation and export can
+never get dropout. See `docs/training/degeneration-and-memorization.md`),
+and `dtype` (string,
 default `"float32"`, validated against a fixed set — the autograd engine
 only actually computes in float32; see section 0 above and
 `tinymind/model/config.py`'s field docstring).

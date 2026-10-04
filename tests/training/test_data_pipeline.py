@@ -272,6 +272,15 @@ class TestDataPlan(unittest.TestCase):
         self.assertEqual((int((order[:, 0] == 0).sum()), int((order[:, 0] == 1).sum())), (30, 10))
         self.assertEqual(p.repeat_factors(), {"a": 1.5, "b": 1.25})
 
+    def test_planned_passes_multiplies_the_per_epoch_factor_by_the_epochs_a_run_makes(self):
+        """repeat_factors is per epoch; a token-budget stage keeps starting epochs, so the number that predicts
+        memorization is factor x epochs."""
+        a, b = self.sources(20, 8)
+        p = self.plan([DataSource("a", a, 0.75), DataSource("b", b, 0.25)], epoch_examples=40)
+        self.assertEqual(p.num_micro_batches(0), 10)                       # 40 examples / batch 4
+        self.assertEqual(p.planned_passes(30), {"a": 4.5, "b": 3.75})      # 3 epochs x {1.5, 1.25}
+        self.assertEqual(p.planned_passes(5), {"a": 0.75, "b": 0.62})      # half an epoch (0.625 rounds to 0.62)
+
     def test_other_sources_do_not_reorder_a_source(self):
         a, b = self.sources(20, 8)
         alone = self.plan([DataSource("a", a)], epoch_examples=20)._epoch_order(0)

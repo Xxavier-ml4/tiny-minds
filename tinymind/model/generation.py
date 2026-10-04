@@ -31,9 +31,24 @@ class ModelGenerationConfig:
     top_p: float | None = None
     do_sample: bool = False
     repetition_penalty: float = 1.0
+    """CTRL-style: every token already in the sequence (prompt included) has its logit divided (if positive) or
+    multiplied (if negative) by this. Blunt: it also penalizes "the" and "of", which is why large values hurt
+    fluency. 1.0 = off."""
+    no_repeat_ngram_size: int = 0
+    """Forbid any token that would complete an n-gram already present in the sequence (0 = off). The targeted
+    cure for loops like "the town of the town of": a 3 stops that phrase from recurring without touching the
+    probability of ordinary function words."""
     eos_token_id: int | None = None
     pad_token_id: int | None = None
     seed: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.repetition_penalty <= 0:
+            raise ValueError(f"repetition_penalty must be > 0, got {self.repetition_penalty}")
+        if self.no_repeat_ngram_size < 0:
+            raise ValueError(f"no_repeat_ngram_size must be >= 0, got {self.no_repeat_ngram_size}")
+        if self.max_new_tokens < 0:
+            raise ValueError(f"max_new_tokens must be >= 0, got {self.max_new_tokens}")
 
 
 def _apply_repetition_penalty(logits: np.ndarray, generated_ids: list[int], penalty: float) -> np.ndarray:
@@ -48,9 +63,26 @@ def _apply_repetition_penalty(logits: np.ndarray, generated_ids: list[int], pena
     return logits
 
 
+def banned_ngram_tokens(generated_ids: list[int], n: int) -> set[int]:
+    """Tokens that would complete an n-gram (``n >= 2``; ``n == 1`` bans every token already used) that already
+    occurs in ``generated_ids``: the standard "no repeat n-gram" rule (same semantics as Hugging Face's)."""
+    if n <= 0 or len(generated_ids) < n:
+        return set()
+    prefix = tuple(generated_ids[len(generated_ids) - (n - 1):]) if n > 1 else ()
+    banned: set[int] = set()
+    for i in range(len(generated_ids) - n + 1):
+        if n == 1 or tuple(generated_ids[i:i + n - 1]) == prefix:
+            banned.add(int(generated_ids[i + n - 1]))
+    return banned
+
+
 def _select_next_token(logits: np.ndarray, generated_ids: list[int], config: ModelGenerationConfig,
                        rng: np.random.Generator) -> int:
     logits = _apply_repetition_penalty(logits, generated_ids, config.repetition_penalty)
+    banned = banned_ngram_tokens(generated_ids, config.no_repeat_ngram_size)
+    if banned and len(banned) < logits.shape[0]:  # never ban the whole vocabulary
+        logits = logits.copy()
+        logits[sorted(banned)] = -np.inf
     if not config.do_sample:
         return int(np.argmax(logits))
     probs = softmax((logits / max(config.temperature, 1e-6)).tolist())

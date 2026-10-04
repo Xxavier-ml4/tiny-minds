@@ -366,7 +366,7 @@ class TestEngineGuards(unittest.TestCase):
         with self.assertRaises(TrainingConfigError):
             make_engine(tmpdir(), model_over=dict(vocab_size=300))          # tokenizer/model vocabulary mismatch
         with self.assertRaises(ModelConfigError):
-            make_engine(tmpdir(), model_over=dict(dropout=0.1))              # would be silently ignored otherwise
+            make_engine(tmpdir(), model_over=dict(sliding_window=2))         # would be silently ignored otherwise
         with self.assertRaises(Exception):
             make_engine(tmpdir(), train_over=dict(max_seq_len=500))
         with self.assertRaises(TrainingConfigError):

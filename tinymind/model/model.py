@@ -92,13 +92,20 @@ class TinyMindTransformer(Module):
                position_ids: np.ndarray | None = None, labels: np.ndarray | None = None,
                use_cache: bool = False, past_key_values: KVCache | None = None,
                output_hidden_states: bool = False, segment_ids: np.ndarray | None = None,
-               loss_normalizer: float | None = None) -> ModelOutput:
+               loss_normalizer: float | None = None,
+               dropout_rng: np.random.Generator | None = None) -> ModelOutput:
         """``labels`` uses the Hugging Face convention: same shape as
         ``input_ids``, shifted inside the loss, ``-100`` = no loss at that
         token. ``segment_ids`` (``[B, T]``) marks independent sequences packed
         into one row: attention becomes block-diagonal causal and RoPE
         positions restart in every segment. ``loss_normalizer`` overrides
-        the loss divisor (gradient accumulation)."""
+        the loss divisor (gradient accumulation).
+
+        ``dropout_rng`` switches training-time dropout on for this one call
+        (rate = ``config.dropout``); it is the ONLY way to enable it, so
+        evaluation, generation and export — which never pass one — are always
+        deterministic, with no train/eval mode to forget. It cannot be combined
+        with a KV cache (dropout during incremental decoding is meaningless)."""
         input_ids = np.asarray(input_ids)
         if input_ids.ndim == 1:
             input_ids = input_ids[None, :]
@@ -107,6 +114,9 @@ class TinyMindTransformer(Module):
             raise ValueError(
                 f"input_ids contains a token id outside [0, {self.config.vocab_size}) — "
                 "tokenizer/model vocabulary mismatch (see TinyMindTransformer.check_tokenizer_compatibility)")
+
+        if dropout_rng is not None and (use_cache or past_key_values is not None):
+            raise ValueError("dropout_rng (training-time dropout) cannot be combined with a KV cache")
 
         attention_bias = None
         if segment_ids is not None:
@@ -132,7 +142,8 @@ class TinyMindTransformer(Module):
         cache = past_key_values if use_cache else None
         for layer_idx, block in enumerate(self.blocks):
             hidden = block(hidden, cos=None, sin=None, kv_cache=cache, layer_idx=layer_idx,
-                          position_ids=position_ids, attention_bias=attention_bias)
+                          position_ids=position_ids, attention_bias=attention_bias,
+                          dropout_rng=dropout_rng)
         if cache is not None:
             cache.advance(input_ids.shape[1])
 

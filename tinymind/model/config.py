@@ -58,6 +58,13 @@ class ModelConfig:
     # formula needs."
     norm_epsilon: float = 1e-6
     dropout: float = 0.0
+    """Training-time dropout rate: attention probabilities, attention output and
+    MLP output (GPT-2 placement), active only when the trainer passes a
+    ``dropout_rng`` to ``forward`` — never at evaluation or generation. 0.0 (the
+    default) is exactly the dropout-free model. It changes no parameter shape and
+    nothing in inference, so ``.tm`` export and the native runtime are unaffected;
+    it IS part of the config hash, so a checkpoint resumes only under the rate it
+    was trained with."""
     dtype: str = "float32"
     """Kept as a config field per the brief's request even though the
     autograd engine (tinymind/model/tensor.py) only actually computes in
@@ -141,8 +148,6 @@ class ModelConfig:
             problems.append(f"mlp_type={self.mlp_type!r} is not implemented (only 'swiglu')")
         if self.sliding_window != 0:
             problems.append(f"sliding_window={self.sliding_window} is not implemented (only 0 = full attention)")
-        if self.dropout != 0.0:
-            problems.append(f"dropout={self.dropout} is not implemented (only 0.0)")
         if self.dtype != "float32":
             problems.append(f"dtype={self.dtype!r} is not implemented (compute is float32 only)")
         h, kv = self.num_heads, self.num_kv_heads

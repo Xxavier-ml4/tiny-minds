@@ -45,13 +45,13 @@ import os
 import resource
 import time
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
 from tinymind.model import ModelConfig, TinyMindTransformer
 from tinymind.model.optim import AdamW
-from tinymind.model.tensor import no_grad
+from tinymind.model.tensor import dropout_generator, no_grad
 from tinymind.model.tokenizer import Tokenizer
 from tinymind.training import checkpoint as ckpt
 from tinymind.training.config import TrainingConfig, TrainingConfigError
@@ -61,6 +61,10 @@ from tinymind.training.render import IGNORE_INDEX, ChatRenderer
 from tinymind.training.schedule import LRSchedule
 
 _RNG_STREAM = 0x7A11
+# Passes over the same examples beyond which the data, not the model, becomes the limit (Muennighoff et
+# al. 2023: ~4 epochs of repeated data are nearly as good as fresh data, returns collapse after ~16).
+# Advisory only: it adds a warning to the log and the summary, it never stops a run.
+MAX_RECOMMENDED_PASSES = 4.0
 
 
 class TrainingDivergedError(FloatingPointError):
@@ -144,6 +148,16 @@ class TrainingEngine:
             self.total_steps = sum(self.plan.steps_in_epoch(e, accum) for e in range(config.epochs))
             if self.total_steps < 1:
                 raise DatasetError("epochs x steps-per-epoch is 0")
+
+        # ---- data sufficiency (advisory) ----------------------------------------
+        # Total passes over each source's examples this stage will make. Memorization needs repetition,
+        # so this is the first thing to look at when output is fluent but loops (see _summary).
+        self.planned_passes = self.plan.planned_passes(self.total_steps * accum)
+        self.data_warnings = [
+            f"source {name!r} is seen {passes:.1f} times over this run (> {MAX_RECOMMENDED_PASSES:g}): a model with "
+            f"{model_config.count_parameters():,} parameters can memorize it. Add data, lower the stage's token budget, "
+            f"or lower this source's mixture weight."
+            for name, passes in self.planned_passes.items() if passes > MAX_RECOMMENDED_PASSES]
 
         # ---- model / optimizer / schedule --------------------------------------
         self.model = TinyMindTransformer(model_config, seed=config.seed)
@@ -421,6 +435,19 @@ class TrainingEngine:
         loss = total / tokens
         return {"val_loss": loss, "val_ppl": math.exp(min(loss, 30.0)), "val_tokens": tokens}
 
+    def fit_diagnostics(self, ev: dict[str, float]) -> dict[str, Any]:
+        """Training loss next to validation loss, so memorization is MEASURED rather than guessed at.
+
+        ``train_loss_recent`` is the mean of the last (up to) 20 optimizer-step losses. With dropout on it is
+        measured WITH dropout (so it is slightly pessimistic and the gap slightly understated). The absolute gap
+        also contains a distribution difference (training mixes in easy synthetic text), so read the TREND: a gap
+        that keeps widening while validation loss stops improving is the memorization signature
+        (see :func:`memorization_signal`). Empty before the first training step."""
+        if not self.recent_losses or "val_loss" not in ev:
+            return {}
+        train = float(np.mean(self.recent_losses))
+        return {"train_loss_recent": train, "generalization_gap": float(ev["val_loss"]) - train}
+
     def _target_bytes(self, dataset: TokenizedDataset) -> int:
         """UTF-8 bytes of the text every loss token predicts (special tokens decode
         to nothing), so a summed loss converts to bits per byte — a measure that
@@ -491,6 +518,14 @@ class TrainingEngine:
                 raise DatasetError("an epoch yields fewer micro-batches than gradient_accumulation_steps")
         return [self.plan.micro_batch(self.epoch, self.cursor + j) for j in range(accum)]
 
+    def _dropout_rng(self, micro_index: int) -> np.random.Generator | None:
+        """The generator for one micro-batch's dropout masks, or ``None`` when the model has no dropout.
+        Seeded from (seed, optimizer step, micro-batch), never from consumed state, so resuming at step N
+        draws exactly the masks the uninterrupted run drew at step N. Evaluation never calls this."""
+        if self.model_config.dropout <= 0.0:
+            return None
+        return dropout_generator(self.config.seed, self.step, micro_index)
+
     def train_step(self) -> dict[str, float]:
         micro = self._micro_batches()
         n_loss = sum(b.num_loss_tokens for b in micro)
@@ -499,8 +534,9 @@ class TrainingEngine:
         self.optimizer.lr = self.schedule.current_lr()
         self.optimizer.zero_grad()
         loss_sum = 0.0
-        for b in micro:
-            out = self.model(b.input_ids, labels=b.labels, segment_ids=b.segment_ids, loss_normalizer=float(n_loss))
+        for j, b in enumerate(micro):
+            out = self.model(b.input_ids, labels=b.labels, segment_ids=b.segment_ids, loss_normalizer=float(n_loss),
+                             dropout_rng=self._dropout_rng(j))
             loss_sum += float(out.loss.item())
             out.loss.backward(retain_graph=False)
             del out
@@ -576,6 +612,8 @@ class TrainingEngine:
         t_wall = time.perf_counter()
         t_budget = self.clock()
         stop = None
+        for warning in self.data_warnings:
+            self.log(f"[data] WARNING: {warning}")
         if self.initial_validation is None and self.step == 0 and self.validation is not None:
             self.initial_validation = self.evaluate()
             self.log(f"[eval] step 0: val_loss {self.initial_validation['val_loss']:.4f}")
@@ -616,9 +654,15 @@ class TrainingEngine:
                              f"gnorm {info['grad_norm']:.2f} {row['tokens_per_sec']:.0f} tok/s")
                 if cfg.eval_interval and self.step % cfg.eval_interval == 0 and self.validation is not None:
                     ev = self.evaluate()
-                    self.val_history.append({"step": self.step, **ev})
-                    metrics_file.write(json.dumps({"step": self.step, **ev}) + "\n")
-                    self.log(f"[eval] step {self.step}: val_loss {ev['val_loss']:.4f} ppl {ev['val_ppl']:.2f}")
+                    fit = self.fit_diagnostics(ev)
+                    self.val_history.append({"step": self.step, **ev, **fit})
+                    metrics_file.write(json.dumps({"step": self.step, **ev, **fit}) + "\n")
+                    self.log(f"[eval] step {self.step}: val_loss {ev['val_loss']:.4f} ppl {ev['val_ppl']:.2f}"
+                             + (f" | train_loss {fit['train_loss_recent']:.4f} gap {fit['generalization_gap']:+.4f}"
+                                if fit else ""))
+                    signal = memorization_signal(self.val_history)
+                    if signal:
+                        self.log(f"[eval] WARNING: {signal}")
                     if self.objective is not None:
                         report = self.run_objective(ev)
                         metrics_file.write(json.dumps({"step": self.step, "objective": history_row(report)}) + "\n")
@@ -693,7 +737,9 @@ class TrainingEngine:
             "tokenizer": self.tokenizer.spec(), "renderer": self.renderer.spec(),
             "dataset": {"dataset_hash": self.plan.dataset_hash(), "identity": self.plan.identity(),
                         "validation_hash": self.validation.content_hash if self.validation else None,
-                        "repeat_factors": self.plan.repeat_factors()},
+                        "repeat_factors": self.plan.repeat_factors(),
+                        # repeat_factors is per epoch; this is per RUN (x the epochs the budget implies)
+                        "planned_passes": self.planned_passes, "warnings": list(self.data_warnings)},
             "training_config": self.config.to_dict(), "total_steps": self.total_steps,
             "initial_step": self.initial_step, "final_step": self.step, "steps_this_run": steps_this_run,
             "epoch": self.epoch, "cumulative_steps": self.cumulative_steps,
@@ -725,6 +771,24 @@ class TrainingEngine:
             "resumed_from": self.resumed_from, "parent": self.parent, "resume_notes": self.load_notes,
             "exports": self.exports, "git_commit": env["git_commit"], "environment": env,
         }
+
+
+def memorization_signal(history: Sequence[Mapping[str, Any]], patience: int = 2) -> str | None:
+    """A message when the last ``patience`` evaluations all show validation loss UP and training loss DOWN
+    relative to the evaluation before them (the classic overfitting signature), else ``None``. Needs
+    ``fit_diagnostics`` fields in the history; a history without them never signals."""
+    rows = list(history)[-(patience + 1):]
+    if len(rows) < patience + 1 or any("train_loss_recent" not in r or "val_loss" not in r for r in rows):
+        return None
+    worse = all(b["val_loss"] > a["val_loss"] and b["train_loss_recent"] < a["train_loss_recent"]
+                for a, b in zip(rows, rows[1:]))
+    if not worse:
+        return None
+    last = rows[-1]
+    return (f"validation loss rose and training loss fell at each of the last {patience} evaluations "
+            f"(val {rows[0]['val_loss']:.4f} -> {last['val_loss']:.4f}, train {rows[0]['train_loss_recent']:.4f} -> "
+            f"{last['train_loss_recent']:.4f}): the model is memorizing the training data. Add data / stop earlier / "
+            f"consider dropout (model.dropout) — see docs/training/degeneration-and-memorization.md")
 
 
 def _atomic_json(path: Path, obj: Any) -> None:

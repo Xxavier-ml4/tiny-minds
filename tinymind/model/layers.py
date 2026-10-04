@@ -33,9 +33,10 @@ class TransformerBlock(Module):
 
     def forward(self, x: Tensor, cos: np.ndarray = None, sin: np.ndarray = None,
                kv_cache=None, layer_idx: int = 0, position_ids: np.ndarray = None,
-               attention_bias: np.ndarray = None) -> Tensor:
+               attention_bias: np.ndarray = None,
+               dropout_rng: np.random.Generator | None = None) -> Tensor:
         x = x + self.attention(self.attn_norm(x), cos, sin, kv_cache=kv_cache,
                                layer_idx=layer_idx, position_ids=position_ids,
-                               attention_bias=attention_bias)
-        x = x + self.mlp(self.mlp_norm(x))
+                               attention_bias=attention_bias, dropout_rng=dropout_rng)
+        x = x + self.mlp(self.mlp_norm(x), dropout_rng=dropout_rng)
         return x

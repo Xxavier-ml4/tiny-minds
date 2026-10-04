@@ -92,12 +92,20 @@ class TransformerBackend(ModelBackend):
         return self._model
 
     def generate(self, prompt: str, max_new_tokens: int = 256,
-                temperature: float = 0.0) -> GenerationResult:
+                temperature: float = 0.0, *, repetition_penalty: float = 1.0,
+                no_repeat_ngram_size: int = 0, top_k: int | None = None,
+                top_p: float | None = None, seed: int | None = None) -> GenerationResult:
+        """The keyword-only decoding controls default to "off", so the call is the same deterministic greedy
+        decode as before unless a caller opts in. ``top_k``/``top_p``/``seed`` only matter when
+        ``temperature > 0`` (sampling)."""
         model = self._require_model()
         start = time.monotonic()
         input_ids = np.array([self._prompt_ids(prompt)])
         config = ModelGenerationConfig(max_new_tokens=max_new_tokens, do_sample=temperature > 0,
                                        temperature=max(temperature, 1e-6),
+                                       top_k=top_k, top_p=top_p, seed=seed,
+                                       repetition_penalty=repetition_penalty,
+                                       no_repeat_ngram_size=no_repeat_ngram_size,
                                        eos_token_id=self._tokenizer.eos_token_id)
         output_ids = generate_with_cache_ids(model, input_ids, config)
         new_ids = output_ids[0][input_ids.shape[1]:].tolist()
@@ -107,14 +115,14 @@ class TransformerBackend(ModelBackend):
                                 latency_ms=(time.monotonic() - start) * 1000.0)
 
     def stream(self, prompt: str, max_new_tokens: int = 256,
-              temperature: float = 0.0) -> Iterator[str]:
+              temperature: float = 0.0, **decoding) -> Iterator[str]:
         # A real token-by-token streaming implementation would drive the
         # same prefill+decode loop as generate_with_cache_ids one step at a
         # time; today this yields the complete result as a single chunk,
         # which is honest about latency (no partial output appears early)
         # while still satisfying the Iterator[str] interface every caller
         # already uses. See STATUS.md.
-        result = self.generate(prompt, max_new_tokens, temperature)
+        result = self.generate(prompt, max_new_tokens, temperature, **decoding)
         yield result.text
 
     def reset(self) -> None:

@@ -22,6 +22,7 @@ import numpy as np
 from tinymind.model.checkpoint import save_pretrained
 from tinymind.model.model import TinyMindTransformer
 from tinymind.model.optim import AdamW
+from tinymind.model.tensor import dropout_generator
 from tinymind.training.collator import CausalLMCollator
 from tinymind.training.dataset import TrainingDataset
 
@@ -80,9 +81,11 @@ class CausalLMTrainer:
         total_loss = 0.0
         total_tokens = 0
         scale = 1.0 / len(micro_batches)
-        for batch in micro_batches:
+        use_dropout = self.model.config.dropout > 0.0  # without a generator the model would silently skip dropout
+        for j, batch in enumerate(micro_batches):
             out = self.model(batch["input_ids"], attention_mask=batch.get("attention_mask"),
-                            labels=batch["labels"])
+                            labels=batch["labels"],
+                            dropout_rng=dropout_generator(self.config.seed, self.global_step, j) if use_dropout else None)
             (out.loss * scale).backward()
             total_loss += out.loss.item()
             total_tokens += int(batch["input_ids"].size)

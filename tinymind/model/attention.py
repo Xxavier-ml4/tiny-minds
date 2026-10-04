@@ -25,7 +25,7 @@ from tinymind.model.config import ModelConfig
 from tinymind.model.linear import Linear
 from tinymind.model.module import Module
 from tinymind.model.positional import apply_rotary_pos_emb, precompute_rope_cache
-from tinymind.model.tensor import Tensor
+from tinymind.model.tensor import Tensor, dropout
 
 _NEG_INF = np.float32(-1e9)  # finite, not -inf: avoids 0*inf==nan if a fully-masked row ever occurs
 
@@ -61,6 +61,7 @@ class CausalSelfAttention(Module):
         self.num_kv_heads = config.num_kv_heads
         self.head_dim = config.head_dim
         self.n_rep = self.num_heads // self.num_kv_heads
+        self.dropout = float(config.dropout)
 
         self.q_proj = Linear(config.hidden_size, self.num_heads * self.head_dim, rng=rng)
         self.k_proj = Linear(config.hidden_size, self.num_kv_heads * self.head_dim, rng=rng)
@@ -71,11 +72,20 @@ class CausalSelfAttention(Module):
 
     def forward(self, x: Tensor, cos: np.ndarray | None = None, sin: np.ndarray | None = None,
                kv_cache=None, layer_idx: int = 0, position_ids: np.ndarray | None = None,
-               attention_bias: np.ndarray | None = None) -> Tensor:
+               attention_bias: np.ndarray | None = None,
+               dropout_rng: np.random.Generator | None = None) -> Tensor:
         """``attention_bias`` (optional, ``[B, 1, T, T_kv]`` additive) REPLACES
         the plain causal mask: the caller builds it with causality already in
         it (see ``block_causal_bias``), which is how packed sequences are kept
-        from attending to each other."""
+        from attending to each other.
+
+        ``dropout_rng``: when given (and ``config.dropout > 0``) dropout is
+        applied to the attention probabilities and to this sub-layer's output
+        before it joins the residual stream; ``None`` (the default, and what
+        evaluation/generation always pass) means no dropout at all. The draw
+        order — probabilities first, then the output — is identical in the
+        fused and reference paths."""
+        rate = self.dropout if dropout_rng is not None else 0.0
         cos = self._cos if cos is None else cos
         sin = self._sin if sin is None else sin
         b, t, _hidden = x.shape
@@ -94,9 +104,10 @@ class CausalSelfAttention(Module):
 
         if fused.enabled():
             use_causal = attention_bias is None and (kv_cache is None or t > 1)
-            out = fused.attention(q, k, v, scale=scale, causal=use_causal, bias=attention_bias)
+            out = fused.attention(q, k, v, scale=scale, causal=use_causal, bias=attention_bias,
+                                  dropout_rate=rate, dropout_rng=dropout_rng if rate > 0.0 else None)
             out = out.transpose(0, 2, 1, 3).reshape(b, t, self.num_heads * self.head_dim)
-            return self.o_proj(out)
+            return dropout(self.o_proj(out), rate, dropout_rng)
 
         # ---- reference path (kept as the numerical ground truth) ----
         k = _repeat_kv(k, self.n_rep)
@@ -118,10 +129,10 @@ class CausalSelfAttention(Module):
         # cache needs no mask — every cached position is, by construction,
         # already at or before the current position.
 
-        weights = scores.softmax(axis=-1)
+        weights = dropout(scores.softmax(axis=-1), rate, dropout_rng)  # [B, H, T, T_kv]; identity unless training
         out = weights @ v  # [B, num_heads, T, head_dim]
         out = out.transpose(0, 2, 1, 3).reshape(b, t, self.num_heads * self.head_dim)
-        return self.o_proj(out)
+        return dropout(self.o_proj(out), rate, dropout_rng)
 
 
 def block_causal_bias(segment_ids: np.ndarray) -> np.ndarray:

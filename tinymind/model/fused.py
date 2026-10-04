@@ -27,7 +27,7 @@ import os
 
 import numpy as np
 
-from tinymind.model.tensor import Tensor
+from tinymind.model.tensor import Tensor, keep_mask
 
 _ENABLED = os.environ.get("TINYMIND_FUSED", "1") not in ("0", "false", "False", "")
 _NEG_INF = np.float32(-1e9)  # same finite mask value as the reference attention (see native-model-contract.md)
@@ -166,7 +166,8 @@ def causal_bias(t: int, t_kv: int) -> np.ndarray:
 
 
 def attention(q: Tensor, k: Tensor, v: Tensor, *, scale: float, causal: bool,
-              bias: np.ndarray | None = None) -> Tensor:
+              bias: np.ndarray | None = None, dropout_rate: float = 0.0,
+              dropout_rng: np.random.Generator | None = None) -> Tensor:
     """``q``: ``[B, H, T, d]``; ``k``/``v``: ``[B, Hkv, Tk, d]`` with
     ``H = Hkv * n_rep``. Returns ``[B, H, T, d]``.
 
@@ -183,6 +184,16 @@ def attention(q: Tensor, k: Tensor, v: Tensor, *, scale: float, causal: bool,
     ``causal=False``). The scale is folded into Q so the ``[.., T, Tk]`` score
     array is written once, softmaxed in place, and is the only large tensor
     kept for backward.
+
+    ``dropout_rate`` / ``dropout_rng`` apply (inverted) dropout to the attention
+    *probabilities* (after the softmax, before they weight V) — the standard
+    GPT-2 placement. It is active only when both are given. The mask is drawn
+    in the reference layout ``[B, H, T, Tk]`` and reshaped to the grouped
+    layout, so the reference path (``tensor.dropout`` on the softmax output)
+    draws the identical mask from the same generator state. Backward:
+    ``dP = (dO V^T) * mask``; the softmax gradient uses the *undropped* P; and
+    ``dV = (P * mask)^T dO``. Only the boolean mask is kept for backward (1/4
+    the bytes of a float32 copy of P); the dropped P is recomputed there.
     """
     b, h, t, d = q.data.shape
     h_kv, t_kv = k.data.shape[1], k.data.shape[2]
@@ -201,7 +212,17 @@ def attention(q: Tensor, k: Tensor, v: Tensor, *, scale: float, causal: bool,
     np.exp(s, out=s)
     s /= s.sum(axis=-1, keepdims=True)
     p = s
-    ctx = np.matmul(p, vd)                                                       # [B, Hkv, n_rep*T, d]
+    keep = None
+    inv_keep = np.float32(1.0)
+    if dropout_rng is not None and dropout_rate > 0.0:
+        keep = keep_mask((b, h, t, t_kv), dropout_rate, dropout_rng).reshape(b, h_kv, n_rep * t, t_kv)
+        inv_keep = np.float32(1.0 / (1.0 - dropout_rate))
+        p_used = p * keep                                                        # dropped, not yet rescaled
+        p_used *= inv_keep
+    else:
+        p_used = p
+    ctx = np.matmul(p_used, vd)                                                  # [B, Hkv, n_rep*T, d]
+    del p_used
     out = Tensor(ctx.reshape(b, h, t, d), requires_grad=q.requires_grad or k.requires_grad or v.requires_grad,
                  _children=(q, k, v), _op="attention")
 
@@ -210,7 +231,16 @@ def attention(q: Tensor, k: Tensor, v: Tensor, *, scale: float, causal: bool,
             g = out.grad.reshape(b, h_kv, n_rep * t, d)
             dp = np.matmul(g, vd.transpose(0, 1, 3, 2))                          # [B, Hkv, n_rep*T, Tk]
             if v.requires_grad:
-                v._accumulate(np.matmul(p.transpose(0, 1, 3, 2), g))
+                if keep is None:
+                    v._accumulate(np.matmul(p.transpose(0, 1, 3, 2), g))
+                else:
+                    p_used = p * keep                                            # recompute the dropped P
+                    p_used *= inv_keep
+                    v._accumulate(np.matmul(p_used.transpose(0, 1, 3, 2), g))
+                    del p_used
+            if keep is not None:
+                dp *= keep                                                       # gradient w.r.t. the undropped P
+                dp *= inv_keep
             dot = np.einsum("...j,...j->...", dp, p)[..., None]
             dp -= dot
             dp *= p                                                              # gradient w.r.t. pre-softmax scores

@@ -77,12 +77,14 @@ def measure_shape(config: ModelConfig, batch_size: int, gradient_accumulation: i
         raise ValueError(f"seq_len {seq_len} exceeds the model's max_seq_len {config.max_seq_len}")
     model, optimizer, _ = _build_model(config, seed)
     rng = np.random.default_rng(seed)
+    # a model with dropout pays for it (mask draws, retained masks): measure that, not a dropout-free step
+    drop_rng = np.random.default_rng([seed, 1]) if config.dropout > 0.0 else None
 
     def micro() -> tuple[float, float]:
         ids = rng.integers(0, config.vocab_size, size=(batch_size, seq_len))
         labels = ids.copy()
         t0 = time.perf_counter()
-        out = model.forward(ids, labels=labels, loss_normalizer=float(batch_size * seq_len))
+        out = model.forward(ids, labels=labels, loss_normalizer=float(batch_size * seq_len), dropout_rng=drop_rng)
         fwd = time.perf_counter() - t0
         t0 = time.perf_counter()
         out.loss.backward()

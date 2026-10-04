@@ -286,12 +286,16 @@ class TestUnsupportedConfigsAreRejected(unittest.TestCase):
 
     def test_each_silent_knob_now_fails_loudly(self):
         from tinymind.model.config import ModelConfigError
+        # (dropout is deliberately NOT here any more: it is implemented, see tests/model/test_dropout.py)
         for override in (dict(norm_type="layernorm"), dict(mlp_type="gelu_mlp"), dict(sliding_window=2),
-                         dict(dropout=0.5), dict(dtype="float16"), dict(attention_type="mqa"),
+                         dict(dtype="float16"), dict(attention_type="mqa"),
                          dict(attention_type="mha", num_kv_heads=2)):
             with self.subTest(**override):
                 with self.assertRaises(ModelConfigError):
                     TinyMindTransformer(ModelConfig(**{**self.BASE, **override}), seed=0)
+
+    def test_dropout_is_a_supported_setting(self):
+        TinyMindTransformer(ModelConfig(**{**self.BASE, "dropout": 0.5}), seed=0)
 
     def test_supported_configs_still_build(self):
         for attention_type, kv in (("mha", 4), ("gqa", 2), ("gqa", 4), ("mqa", 1)):

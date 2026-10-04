@@ -30,7 +30,7 @@ experiments in the JSON above):
 | Parameters | `Tensor(requires_grad=True)` attributes on `Module`s; `named_parameters()` walks attribute-assignment order (`embed_tokens`, `block_i.*`, `final_norm.weight`, optional `lm_head.weight`). float32 only. |
 | Gradients | `Tensor.grad` (NumPy array, `None` until touched). `backward()` builds a topological order with a **recursive** DFS, then calls each node's closure. Nothing is freed after backward. |
 | Optimizer state | `AdamW._m`, `AdamW._v` (lists indexed by parameter *position*), `step_count`. No `state_dict`. Weight decay is applied to every parameter, including RMSNorm weights and the embedding. |
-| RNG | Model init: `np.random.default_rng(seed)`. Training: `random.seed` + `np.random.seed` at the start of `train()`, then `random.shuffle` on the **global** Python RNG once per epoch. The model consumes no randomness at train time (dropout is not implemented). |
+| RNG | Model init: `np.random.default_rng(seed)`. Training: `random.seed` + `np.random.seed` at the start of `train()`, then `random.shuffle` on the **global** Python RNG once per epoch. The model consumes no randomness at train time unless `model.dropout > 0`; its masks are then a pure function of `(seed, optimizer step, micro-batch)` — not drawn from the streams above — so a resumed run reproduces the uninterrupted one exactly. |
 | Checkpoints | `save_pretrained`: `config.json`, `tokenizer_meta.json`, optional `training_meta.json`, `weights.npz`, optional `optimizer_state.npz` (`m_i`/`v_i` by index). Written in place. |
 | `.tm` | `TM01` container: JSON metadata + named tensor directory + per-tensor CRC32. `export_to_tm` writes float32 tensors named after `named_parameters()`, architecture tag `tinymind-transformer-v1`, and the model config. **No tokenizer, no format/renderer identity, no whole-file digest.** |
 | Tokenizer | `ByteTokenizer` (260 ids: PAD/BOS/EOS/UNK + 256 bytes). It is the only tokenizer; the CLI hard-codes it. |
@@ -309,7 +309,9 @@ constant) to `min_learning_rate`.
   different hardware) restores the same state but may round float sums
   differently, so bitwise equality with a hypothetical single-machine run is not
   promised there. The trainer consumes no random numbers after initialisation
-  (no dropout; data order is derived from `(seed, epoch)`); the RNG stream is still
+  (data order is derived from `(seed, epoch)`; dropout, when enabled, derives its
+  masks from `(seed, step, micro-batch)` instead of consuming a stream, which is
+  what keeps resume exact); the RNG stream is still
   saved and restored so a future stochastic component stays resumable
   (`test_rng_state_survives_json_round_trip`).
 

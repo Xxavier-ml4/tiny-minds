@@ -507,6 +507,62 @@ def cross_entropy(logits: Tensor, targets: np.ndarray, ignore_index: int = -100,
     return out
 
 
+def keep_mask(shape: tuple, rate: float, rng: np.random.Generator) -> np.ndarray:
+    """Boolean mask, ``True`` (keep) with probability ``1 - rate``.
+
+    Drawn as float32 uniforms so the draw is exactly reproducible from the
+    generator's state; the fused attention kernel and the reference path both
+    use this function with the same ``[B, heads, T, T_kv]`` layout, which is
+    what lets ``tests/model/test_dropout.py`` demand bit-identical masks (and
+    therefore identical outputs and gradients) from the two paths.
+    """
+    if not 0.0 <= rate < 1.0:
+        raise ValueError(f"dropout rate must be in [0, 1), got {rate}")
+    return rng.random(shape, dtype=_DTYPE) >= _DTYPE(rate)
+
+
+# Dropout masks are a pure function of (seed, _DROPOUT_STREAM, optimizer step, micro-batch): nothing stateful has to
+# be saved for a resumed run to reproduce the uninterrupted one bit for bit. Every trainer must seed through
+# ``dropout_generator`` so they all agree (and so none can quietly skip dropout: see the trainers' tests).
+_DROPOUT_STREAM = 0xD20B
+
+
+def dropout_generator(seed: int, step: int, micro_index: int) -> np.random.Generator:
+    """The generator for one micro-batch's dropout masks (see ``dropout`` for why it is explicit)."""
+    return np.random.default_rng(np.random.SeedSequence([int(seed), _DROPOUT_STREAM, int(step), int(micro_index)]))
+
+
+def dropout(x: Tensor, rate: float, rng: np.random.Generator | None) -> Tensor:
+    """Inverted dropout: zero each element with probability ``rate`` and scale
+    the survivors by ``1 / (1 - rate)`` so the expected activation is unchanged
+    and inference needs no compensating rescale.
+
+    **There is no ``training`` flag by design.** Dropout is applied only when a
+    generator is supplied: the trainer hands one to the forward pass, every
+    other caller (evaluation, generation, export, the native-equivalence
+    tests) passes nothing and gets the identity. A stateful train/eval mode
+    would fail the classic way — forget ``eval()`` before generating and the
+    model silently samples noise — and this API cannot be misused like that.
+    The generator also makes the mask a pure function of the caller's seed, so
+    a resumed run reproduces the uninterrupted run exactly (the trainer seeds
+    it from ``(seed, optimizer step, micro-batch)``; see training/engine.py).
+
+    Backward: ``d(out)/d(x) = mask * 1/(1-rate)`` (the same scaled mask).
+    """
+    if not 0.0 <= rate < 1.0:
+        raise ValueError(f"dropout rate must be in [0, 1), got {rate}")
+    if rng is None or rate == 0.0:
+        return x
+    mask = keep_mask(x.data.shape, rate, rng).astype(_DTYPE)
+    mask *= _DTYPE(1.0 / (1.0 - rate))
+    out = Tensor(x.data * mask, requires_grad=x.requires_grad, _children=(x,), _op="dropout")
+    if out.requires_grad:
+        def _backward():
+            x._accumulate(out.grad * mask)
+        out._backward = _backward
+    return out
+
+
 def concat(tensors: list[Tensor], axis: int = -1) -> Tensor:
     datas = [t.data for t in tensors]
     out_data = np.concatenate(datas, axis=axis)

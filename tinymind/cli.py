@@ -187,8 +187,15 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         print(f"error loading {args.model!r}: {exc}", file=sys.stderr)
         return 1
 
-    result = backend.generate(args.prompt, max_new_tokens=args.max_new_tokens,
-                              temperature=args.temperature)
+    try:
+        result = backend.generate(args.prompt, max_new_tokens=args.max_new_tokens,
+                                  temperature=args.temperature,
+                                  repetition_penalty=args.repetition_penalty,
+                                  no_repeat_ngram_size=args.no_repeat_ngram_size,
+                                  top_k=args.top_k, top_p=args.top_p, seed=args.seed)
+    except ValueError as exc:  # e.g. a non-positive penalty, an invalid top-p
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     print(result.text)
     print(f"\n[{result.tokens_generated} tokens, {result.latency_ms:.1f} ms, "
          f"finish_reason={result.finish_reason}]", file=sys.stderr)
@@ -371,6 +378,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-new-tokens", type=int, default=32, dest="max_new_tokens")
     p.add_argument("--temperature", type=float, default=0.0,
                    help="0.0 (default) = deterministic greedy decoding")
+    p.add_argument("--no-repeat-ngram-size", type=int, default=0, dest="no_repeat_ngram_size",
+                   help="forbid completing any n-gram already in the text (e.g. 3); the targeted fix for loops "
+                        "like 'the town of the town of'. 0 (default) = off")
+    p.add_argument("--repetition-penalty", type=float, default=1.0, dest="repetition_penalty",
+                   help="CTRL-style penalty on tokens already used (1.1-1.2 is typical); blunter than "
+                        "--no-repeat-ngram-size. 1.0 (default) = off")
+    p.add_argument("--top-k", type=int, default=None, dest="top_k", help="sample only from the k likeliest tokens "
+                                                                         "(needs --temperature > 0)")
+    p.add_argument("--top-p", type=float, default=None, dest="top_p", help="nucleus sampling cut-off in (0, 1] "
+                                                                           "(needs --temperature > 0)")
+    p.add_argument("--seed", type=int, default=None, help="sampling seed (needs --temperature > 0)")
     p.set_defaults(func=_cmd_generate)
 
     from tinymind import cli_training

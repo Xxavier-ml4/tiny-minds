@@ -459,9 +459,16 @@ step exist; a real corpus is not committed). The `train-50m.yml` workflow is
 verified structurally (YAML + asserts), not by a runner execution.
 
 **Test-suite note**: the full stdlib `unittest` discovery over `tests/` runs
-613 tests. All pass except one pre-existing CI test
-(`tests/ci/test_stage_io.py::...interrupted_stage`) that asserts an artifact
-name whose suffix is a **git commit SHA**; this authoring sandbox is not a git
-checkout, so the fallback suffix contains a hyphen and the test's `rsplit("-",1)`
-splits differently. It passes in a normal git checkout and is unrelated to the
-v2 changes (which touch none of `stage_io.py`, that test, or artifact naming).
+778 tests and all pass. (An earlier version of this note recorded one failing CI test,
+`tests/ci/test_stage_io.py::...interrupted_stage`, that split an artifact name with
+`rsplit("-", 1)` and broke whenever the run-id suffix contained a hyphen, e.g. outside a git
+checkout. It now matches the name's prefix instead and passes everywhere.)
+
+**Dropout and the anti-looping diagnostics** (see `CHANGELOG.md`,
+`docs/training/degeneration-and-memorization.md`): `model.dropout` is implemented and
+applied by every trainer, off by default (`configs/50m.yaml` keeps `0.0`); the trainer now
+reports the train/val gap, warns on memorization signatures and on data repeated more than
+~4 times; `generate` gained `--no-repeat-ngram-size`/`--repetition-penalty`/sampling flags;
+stage reports carry a non-gating decoding-mitigated generation diagnostic. Tests:
+`tests/model/test_dropout.py`, `test_decoding_controls.py`,
+`tests/training/test_dropout_training.py`, `test_objective_diagnostic.py`.

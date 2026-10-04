@@ -3,6 +3,7 @@
   "stage": "stage1",
   "generation": {
     "max_new_tokens": 64,
+    "diagnostic_decoding": {"repetition_penalty": 1.15, "no_repeat_ngram_size": 3},
     "prompts": [
       "The sun rose over the",
       "Once upon a time, there was a",

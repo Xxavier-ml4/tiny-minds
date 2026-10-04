@@ -4,6 +4,52 @@ All notable changes to this project are recorded here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); this project has
 not yet made a tagged release, so everything below is unreleased.
 
+## [Unreleased] — Dropout, anti-looping diagnostics and decoding controls
+
+Prompted by an external review of fluent-but-looping stage-1 output ("the town of the town of ...").
+Each item was checked against the code first; what the review got wrong is recorded here too.
+
+### Added
+
+- **Training-time dropout** (`model.dropout`, previously rejected): attention probabilities, attention output and
+  MLP output (GPT-2 placement) in both the fused kernel and the reference path. It is enabled only by passing a
+  `dropout_rng` to `forward` — there is no train/eval flag to forget, so evaluation, generation and export are
+  dropout-free by construction. The trainer seeds masks from `(seed, step, micro-batch)`, so interrupted and
+  resumed runs are bit-identical to uninterrupted ones. Every trainer applies it (the engine, the `--legacy`
+  Phase 3A trainer, and the `benchmark train-step` preflight, so measured cost/memory include it); a single
+  `dropout_generator` defines the seeding. Default stays `0.0` (see "Not changed").
+- **Measuring memorization instead of assuming it**: `[eval]` lines, `val_history` and `metrics.jsonl` carry
+  `train_loss_recent` and `generalization_gap`; `memorization_signal` warns when validation loss rises while
+  training loss falls on consecutive evaluations; `DataPlan.planned_passes` (per-epoch repeat factor × epochs the
+  token budget implies) feeds a start-up `[data] WARNING` and `training_summary.json` → `dataset.planned_passes`.
+  All advisory; none can stop a run.
+- **Decoding controls**: `ModelGenerationConfig.no_repeat_ngram_size`, input validation, and `tinymind generate`
+  flags `--no-repeat-ngram-size`, `--repetition-penalty`, `--top-k`, `--top-p`, `--seed` (the CLI previously exposed
+  only `--temperature`). Defaults are unchanged: plain deterministic greedy.
+- **Non-gating `generation_decoded` diagnostic** in stage reports (`generation.diagnostic_decoding`, enabled in
+  `stage1.objective.json`): the same fixed prompts under a repetition penalty and a 3-gram ban, shown beside the raw
+  greedy numbers. No measurement may reference it.
+- `docs/training/degeneration-and-memorization.md`; tests `test_dropout.py`, `test_dropout_training.py`,
+  `test_decoding_controls.py`, `test_objective_diagnostic.py`.
+
+### Fixed
+
+- `tests/ci/test_stage_io.py::...interrupted_stage` asserted an artifact name by `rsplit("-", 1)`, which broke
+  whenever the run id (a git SHA in CI, a fallback outside a checkout) contained a hyphen. It now matches the prefix.
+- Tests that asserted `dropout` was rejected now assert it is supported. (`benchmarks/audit/phase3a_correctness_audit.py`
+  is a frozen record of the Phase 3A audit and was already out of date for the other knobs; it is left as it was.)
+
+### Not changed, on purpose
+
+- **Cross-document loss masking**: already implemented and tested (`collate_packed` requires `labels[0] == -100`;
+  block-diagonal attention via `segment_ids`; RoPE positions restart per segment; see
+  `test_packed_loss_equals_sum_of_individual_losses`). Nothing to fix.
+- **The stage gate still measures raw greedy output.** A repetition penalty in the gate would let a model that loops
+  pass `generation_not_looping`.
+- **`configs/50m.yaml` keeps `dropout: 0.0`.** At a budget of a few passes over the data a 50M model is
+  training-limited, not data-limited, and dropout slows it; it is also part of the model-config hash, so enabling it
+  makes existing checkpoints unresumable. Turn it on at the start of a stage if the new diagnostics show memorization.
+
 ## [Unreleased] — Fixes from the first GitHub run of train-50m
 
 ### Fixed
